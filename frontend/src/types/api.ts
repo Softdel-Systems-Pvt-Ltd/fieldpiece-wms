@@ -1,4 +1,4 @@
-// Transport-level shapes shared by every feature (Section 9).
+// Transport-level shapes shared by every feature (backend Section 6.3 / 6.4).
 
 export interface Paginated<T> {
   items: T[];
@@ -18,5 +18,7 @@ export interface PageParams {
 export interface ApiErrorBody {
   code: string;
   message: string;
-  fieldErrors?: Record<string, string>;
+  fieldErrors?: Record<string, string[] | string>;
+  details?: Record<string, unknown>;
+  requestId?: string;
 }

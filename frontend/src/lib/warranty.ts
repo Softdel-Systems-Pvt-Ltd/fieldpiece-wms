@@ -1,15 +1,27 @@
-import { addMonths, differenceInCalendarDays, isAfter, isBefore, parseISO, startOfDay } from "date-fns";
+import {
+  addMonths,
+  differenceInCalendarDays,
+  isAfter,
+  isBefore,
+  parseISO,
+  startOfDay,
+  subDays,
+} from "date-fns";
 import type { RegistrationStatus, WarrantyPolicy } from "@/types";
 
 // Warranty date maths (Section 7.2). This is a PREVIEW only: the API's value always wins.
-// Durations come from WarrantyPolicy. Never hard-code them. [CONFIRM real terms per product line]
+// Mirrors the backend engine (backend Section 8.1): coverage ends the day before the anniversary, and the
+// registration bonus applies when registering now. Durations come from the policy, never hard-coded.
 
-type PolicyTerms = Pick<WarrantyPolicy, "baseMonths" | "extensionMonthsOnRegistration">;
+type PolicyTerms = Pick<WarrantyPolicy, "baseMonths"> & { registrationBonusMonths?: number | null };
 
 const toDate = (value: string | Date) => (typeof value === "string" ? parseISO(value) : value);
 
 export function computeWarrantyEnd(purchaseDate: string | Date, policy: PolicyTerms): Date {
-  return addMonths(toDate(purchaseDate), policy.baseMonths + (policy.extensionMonthsOnRegistration ?? 0));
+  return subDays(
+    addMonths(toDate(purchaseDate), policy.baseMonths + (policy.registrationBonusMonths ?? 0)),
+    1,
+  );
 }
 
 export interface WarrantyStatusOptions {

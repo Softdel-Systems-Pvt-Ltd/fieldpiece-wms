@@ -1,28 +1,33 @@
 import { createColumnHelper } from "@tanstack/react-table";
-import { ShieldCheck, Upload } from "lucide-react";
-import { useMemo } from "react";
+import { Search, ShieldCheck, Upload } from "lucide-react";
+import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router-dom";
 import { PageHeader } from "@/components/layout";
-import { buttonVariants, DataTable, MonoId, WarrantyStatusBadge } from "@/components/ui";
+import { buttonVariants, DataTable, Input, MonoId, NativeSelect, WarrantyStatusBadge } from "@/components/ui";
 import { formatDate } from "@/lib/format";
 import { can } from "@/lib/permissions";
 import { useCurrentRole } from "@/lib/session";
 import { useTableParams } from "@/lib/use-table-params";
-import type { Registration } from "@/types";
+import type { Registration, RegistrationStatus } from "@/types";
 import { useRegistrations } from "../hooks";
 
+const STATUSES: RegistrationStatus[] = ["ACTIVE", "EXPIRING_SOON", "EXPIRED", "VOID"];
 const col = createColumnHelper<Registration>();
 
 export default function RegistrationsListPage() {
   const { t, i18n } = useTranslation();
   const role = useCurrentRole();
   const [params, update] = useTableParams({ sort: "-createdAt" });
+  const [search, setSearch] = useState(params.q ?? params.filters.serial ?? "");
+  const status = params.filters.status as RegistrationStatus | undefined;
   const query = useRegistrations({
     page: params.page,
     pageSize: params.pageSize,
     sort: params.sort,
     q: params.q,
+    serial: params.filters.serial,
+    status,
   });
 
   const columns = useMemo(
@@ -31,7 +36,12 @@ export default function RegistrationsListPage() {
         header: t("registrations.columns.serial"),
         cell: (i) => <MonoId>{i.getValue()}</MonoId>,
       }),
-      col.accessor("sku", { header: t("registrations.columns.sku") }),
+      col.accessor("productName", {
+        header: t("registrations.columns.product"),
+        enableSorting: false,
+        cell: (i) => `${i.row.original.sku} · ${i.getValue()}`,
+      }),
+      col.accessor("customerName", { header: t("registrations.columns.owner"), enableSorting: false }),
       col.accessor("purchaseDate", {
         header: t("registrations.columns.purchaseDate"),
         cell: (i) => formatDate(i.getValue(), i18n.language),
@@ -42,6 +52,7 @@ export default function RegistrationsListPage() {
       }),
       col.accessor("status", {
         header: t("registrations.columns.status"),
+        enableSorting: false,
         cell: (i) => <WarrantyStatusBadge status={i.getValue()} />,
       }),
     ],
@@ -84,6 +95,52 @@ export default function RegistrationsListPage() {
         onRetry={() => void query.refetch()}
         emptyIcon={ShieldCheck}
         emptyMessage={t("registrations.empty")}
+        toolbar={
+          <>
+            <form
+              role="search"
+              className="relative w-full sm:w-72"
+              onSubmit={(e) => {
+                e.preventDefault();
+                update({ q: search.trim(), serial: undefined });
+              }}
+            >
+              <label htmlFor="registrations-search" className="sr-only">
+                {t("registrations.searchPlaceholder")}
+              </label>
+              <Search
+                size={16}
+                strokeWidth={1.75}
+                aria-hidden
+                className="pointer-events-none absolute start-3 top-1/2 -translate-y-1/2 text-ink-500"
+              />
+              <Input
+                id="registrations-search"
+                type="search"
+                className="ps-9"
+                placeholder={t("registrations.searchPlaceholder")}
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+              />
+            </form>
+            <label htmlFor="registrations-status" className="sr-only">
+              {t("registrations.columns.status")}
+            </label>
+            <NativeSelect
+              id="registrations-status"
+              className="w-full sm:w-48"
+              value={status ?? ""}
+              onChange={(e) => update({ status: e.target.value })}
+            >
+              <option value="">{t("claims.allStatuses")}</option>
+              {STATUSES.map((s) => (
+                <option key={s} value={s}>
+                  {t(`status.warranty.${s}`)}
+                </option>
+              ))}
+            </NativeSelect>
+          </>
+        }
       />
     </>
   );

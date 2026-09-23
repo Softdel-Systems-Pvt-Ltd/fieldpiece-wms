@@ -1,16 +1,15 @@
 import type { ClaimStatus } from "@/types";
 
-export interface Kpi {
-  value: number;
-  change?: number;
-  sparkline?: number[];
-}
-
-export interface DashboardSummary {
-  registrationsThisMonth: Kpi;
-  openClaims: Kpi;
-  avgResolutionDays: Kpi;
-  slaBreached: Kpi;
+/** GET /reports/claims-summary */
+export interface ClaimsSummary {
+  from: string;
+  to: string;
+  byStatus: { status: ClaimStatus; count: number }[];
+  claimsSubmitted: { current: number; previous: number };
+  registrations: { current: number; previous: number };
+  openClaims: number;
   unassigned: number;
-  claimsByStatus: { status: ClaimStatus; count: number }[];
+  slaBreached: number;
+  avgResolutionDays: number | null;
+  claimsOverTime: { date: string; count: number }[];
 }

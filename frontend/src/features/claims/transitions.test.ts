@@ -1,12 +1,12 @@
-import type { ClaimStatus, Role } from "@/types";
+import type { ClaimAction, ClaimStatus, Role } from "@/types";
 import {
-  allowedTransitions,
-  canPerform,
-  CLAIM_TRANSITIONS,
+  ACTION_META,
+  allowedActions,
   isOpen,
   isTerminal,
   nextStatus,
-  transitionsFrom,
+  orderActions,
+  TRANSITIONS,
 } from "./transitions";
 
 const ALL_STATUSES: ClaimStatus[] = [
@@ -25,104 +25,86 @@ const ALL_STATUSES: ClaimStatus[] = [
   "CLOSED",
 ];
 
-const actionsFor = (status: ClaimStatus, role: Role) => allowedTransitions(status, role).map((t) => t.action);
+const actionsFor = (status: ClaimStatus, role: Role) => allowedActions(status, [role]);
 
-describe("claim state machine", () => {
-  it("follows the happy path from draft to closed", () => {
-    const path: [ClaimStatus, Parameters<typeof nextStatus>[1], ClaimStatus][] = [
+describe("action metadata", () => {
+  it("covers every API action with an endpoint", () => {
+    expect(Object.keys(ACTION_META).sort()).toEqual(Object.keys(TRANSITIONS).sort());
+    expect(ACTION_META.startReview.path).toBe("start-review");
+    expect(ACTION_META.requestInfo.path).toBe("request-info");
+  });
+
+  it("puts the primary action last", () => {
+    expect(orderActions(["approve", "reject", "requestInfo"])).toEqual(["reject", "requestInfo", "approve"]);
+  });
+});
+
+describe("server table mirror", () => {
+  it("walks the claim-endpoint happy path", () => {
+    const path: [ClaimStatus, ClaimAction, ClaimStatus][] = [
       ["DRAFT", "submit", "SUBMITTED"],
-      ["SUBMITTED", "start_review", "IN_REVIEW"],
+      ["SUBMITTED", "startReview", "IN_REVIEW"],
       ["IN_REVIEW", "approve", "APPROVED"],
-      ["APPROVED", "issue_rma", "RMA_ISSUED"],
-      ["RMA_ISSUED", "mark_in_transit", "IN_TRANSIT"],
-      ["IN_TRANSIT", "mark_received", "RECEIVED"],
-      ["RECEIVED", "mark_repaired", "REPAIRED"],
       ["REPAIRED", "close", "CLOSED"],
     ];
     path.forEach(([from, action, to]) => expect(nextStatus(from, action)).toBe(to));
   });
 
-  it("loops NEEDS_INFO back to IN_REVIEW when the customer responds", () => {
-    expect(nextStatus("IN_REVIEW", "request_info")).toBe("NEEDS_INFO");
+  it("loops NEEDS_INFO back to IN_REVIEW", () => {
+    expect(nextStatus("IN_REVIEW", "requestInfo")).toBe("NEEDS_INFO");
     expect(nextStatus("NEEDS_INFO", "respond")).toBe("IN_REVIEW");
   });
 
-  it("lets rejected claims only close", () => {
-    expect(nextStatus("IN_REVIEW", "reject")).toBe("REJECTED");
-    expect(transitionsFrom("REJECTED").map((t) => t.action)).toEqual(["close"]);
-  });
-
-  it("returns null for an action that isn't valid from the status", () => {
+  it("returns null for an invalid action and never leaves CLOSED", () => {
     expect(nextStatus("DRAFT", "approve")).toBeNull();
-    expect(nextStatus("CLOSED", "close")).toBeNull();
+    for (const action of Object.keys(TRANSITIONS) as ClaimAction[])
+      expect(nextStatus("CLOSED", action)).toBeNull();
   });
 
-  it("allows every resolution from RECEIVED and closes each of them", () => {
-    (["REPAIRED", "REPLACED", "CREDITED"] as const).forEach((resolved) => {
-      expect(transitionsFrom("RECEIVED").some((t) => t.to === resolved)).toBe(true);
-      expect(nextStatus(resolved, "close")).toBe("CLOSED");
-    });
-  });
-
-  it("has no transitions out of CLOSED", () => {
-    expect(transitionsFrom("CLOSED")).toHaveLength(0);
-    expect(isTerminal("CLOSED")).toBe(true);
-    expect(isTerminal("REPAIRED")).toBe(false);
-  });
-
-  it("only ever targets known statuses", () => {
-    CLAIM_TRANSITIONS.forEach((t) => {
-      expect(ALL_STATUSES).toContain(t.from);
+  it("only targets known statuses", () => {
+    Object.values(TRANSITIONS).forEach((t) => {
       expect(ALL_STATUSES).toContain(t.to);
+      t.from.forEach((s) => expect(ALL_STATUSES).toContain(s));
     });
   });
 });
 
-describe("role permissions", () => {
+describe("allowed actions per role", () => {
   it("lets technicians submit and respond, but never review", () => {
     expect(actionsFor("DRAFT", "technician")).toEqual(["submit"]);
     expect(actionsFor("NEEDS_INFO", "technician")).toEqual(["respond"]);
     expect(actionsFor("IN_REVIEW", "technician")).toEqual([]);
-    expect(canPerform("IN_REVIEW", "approve", "technician")).toBe(false);
   });
 
   it("gives claims agents the review decisions", () => {
-    expect(actionsFor("SUBMITTED", "claims_agent")).toEqual(["start_review"]);
-    expect(actionsFor("IN_REVIEW", "claims_agent")).toEqual(["request_info", "approve", "reject"]);
-    expect(actionsFor("RECEIVED", "claims_agent")).toEqual([]);
+    expect(actionsFor("SUBMITTED", "claims_agent")).toEqual(["startReview"]);
+    expect(actionsFor("IN_REVIEW", "claims_agent")).toEqual(["requestInfo", "approve", "reject"]);
+    expect(actionsFor("REJECTED", "claims_agent")).toEqual(["close"]);
   });
 
-  it("gives the service center receiving and resolution", () => {
-    expect(actionsFor("IN_TRANSIT", "service_center")).toEqual(["mark_received"]);
-    expect(actionsFor("RECEIVED", "service_center")).toEqual([
-      "mark_repaired",
-      "mark_replaced",
-      "mark_credited",
-    ]);
-    expect(canPerform("IN_REVIEW", "approve", "service_center")).toBe(false);
+  it("does not let admins respond on a customer's behalf", () => {
+    expect(actionsFor("NEEDS_INFO", "admin")).toEqual([]);
   });
 
-  it("lets admins do everything", () => {
-    CLAIM_TRANSITIONS.forEach((t) => expect(canPerform(t.from, t.action, "admin")).toBe(true));
-  });
-
-  it("returns nothing without a role", () => {
-    expect(allowedTransitions("IN_REVIEW", undefined)).toEqual([]);
-    expect(canPerform("DRAFT", "submit", null)).toBe(false);
+  it("gives service centers nothing on claim endpoints (their actions live on the RMA)", () => {
+    for (const status of ALL_STATUSES) expect(actionsFor(status, "service_center")).toEqual([]);
   });
 });
 
-describe("isOpen", () => {
+describe("isOpen / isTerminal", () => {
   it.each<[ClaimStatus, boolean]>([
     ["DRAFT", false],
     ["SUBMITTED", true],
-    ["IN_REVIEW", true],
     ["NEEDS_INFO", true],
-    ["APPROVED", true],
     ["RMA_ISSUED", true],
     ["RECEIVED", true],
     ["REJECTED", false],
     ["REPAIRED", false],
     ["CLOSED", false],
-  ])("%s -> %s", (status, open) => expect(isOpen(status)).toBe(open));
+  ])("%s open -> %s", (status, open) => expect(isOpen(status)).toBe(open));
+
+  it("treats only CLOSED as terminal", () => {
+    expect(isTerminal("CLOSED")).toBe(true);
+    expect(isTerminal("REJECTED")).toBe(false);
+  });
 });

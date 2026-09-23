@@ -1,13 +1,33 @@
-import type { PageParams } from "@/types";
+import type { Address, PageParams, RegistrationStatus } from "@/types";
 
-export type RegistrationFilters = PageParams;
+export interface RegistrationFilters extends PageParams {
+  status?: RegistrationStatus;
+  serial?: string;
+  customerId?: string;
+}
 
 export interface CreateRegistrationRequest {
   serialNumber: string;
   sku: string;
   purchaseDate: string; // ISO date
-  sellerName?: string;
+  customerId?: string;
+  customer?: {
+    contactName: string;
+    companyName?: string;
+    email?: string;
+    phone?: string;
+    address: Address;
+  };
   proofOfPurchaseIds: string[];
-  owner: { name: string; email: string; phone?: string };
-  acceptTerms: true;
+}
+
+export interface ImportStatus {
+  jobId: string;
+  state: "queued" | "running" | "completed" | "failed";
+  total: number;
+  processed: number;
+  succeeded: number;
+  failed: number;
+  message: string | null;
+  errorReportUrl: string | null;
 }

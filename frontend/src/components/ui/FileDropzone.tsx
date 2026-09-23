@@ -1,6 +1,6 @@
 import { FileText, Upload, X } from "lucide-react";
 import { useEffect, useMemo } from "react";
-import { useDropzone, type FileRejection } from "react-dropzone";
+import { type Accept, useDropzone, type FileRejection } from "react-dropzone";
 import { useTranslation } from "react-i18next";
 import { cn } from "@/lib/cn";
 import { formatFileSize } from "@/lib/format";
@@ -11,6 +11,7 @@ import { formatFileSize } from "@/lib/format";
 
 export const MAX_FILE_SIZE_MB = 10;
 export const MAX_FILES = 5;
+const IMAGE_OR_PDF: Accept = { "image/*": [], "application/pdf": [".pdf"] };
 
 export interface UploadItem {
   file: File;
@@ -23,6 +24,9 @@ interface FileDropzoneProps {
   value: UploadItem[];
   onChange: (items: UploadItem[]) => void;
   onReject?: (messages: string[]) => void;
+  /** Defaults to photos and PDFs. */
+  accept?: Accept;
+  hint?: string;
   maxFiles?: number;
   maxSizeMb?: number;
   id?: string;
@@ -36,6 +40,8 @@ export function FileDropzone({
   onReject,
   maxFiles = MAX_FILES,
   maxSizeMb = MAX_FILE_SIZE_MB,
+  accept = IMAGE_OR_PDF,
+  hint,
   id,
   ...aria
 }: FileDropzoneProps) {
@@ -57,7 +63,7 @@ export function FileDropzone({
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
-    accept: { "image/*": [], "application/pdf": [".pdf"] },
+    accept,
     maxSize: maxSizeMb * 1024 * 1024,
     maxFiles,
     disabled: remaining <= 0,
@@ -80,10 +86,12 @@ export function FileDropzone({
           ),
         })}
       >
-        <input {...getInputProps({ id, capture: "environment", ...aria })} />
+        <input
+          {...getInputProps({ id, capture: "image/*" in accept ? "environment" : undefined, ...aria })}
+        />
         <Upload size={24} strokeWidth={1.75} aria-hidden className="text-ink-500" />
         <p className="text-body font-semibold">{t("fields.fileDrop")}</p>
-        <p className="text-xs text-text-muted">{t("fields.fileDropHint", { maxSizeMb, maxFiles })}</p>
+        <p className="text-xs text-text-muted">{hint ?? t("fields.fileDropHint", { maxSizeMb, maxFiles })}</p>
       </div>
 
       {value.length ? (

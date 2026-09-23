@@ -1,7 +1,9 @@
-import type { ClaimStatus, Role } from "@/types";
+import type { ClaimAction, ClaimStatus, Role } from "@/types";
 
-// Claim state machine (Section 7.1). The ONE place that decides which actions a role may take
-// from a given status. The UI only shows buttons this file allows; the API still enforces it.
+// Claim actions (Section 7.1). The API decides what's allowed: GET /claims/{id} returns `allowedActions`
+// for the caller, and screens render exactly those. This file holds only what the UI needs per action
+// (endpoint, button tone, what input to collect) plus a mirror of the server's table for the MSW mocks
+// and tests. Keep TRANSITIONS in sync with backend/src/modules/claims/claim-state-machine.ts.
 //
 // DRAFT → SUBMITTED → IN_REVIEW ─┬→ APPROVED → RMA_ISSUED → IN_TRANSIT → RECEIVED ─┬→ REPAIRED ─┐
 //                         ↑      │                                                 ├→ REPLACED ─┼→ CLOSED
@@ -9,128 +11,79 @@ import type { ClaimStatus, Role } from "@/types";
 //                         └──────┼─────────────────────────────────────┘
 //                                └→ REJECTED → CLOSED
 
-export type ClaimAction =
-  | "submit"
-  | "start_review"
-  | "request_info"
-  | "respond"
-  | "approve"
-  | "reject"
-  | "issue_rma"
-  | "mark_in_transit"
-  | "mark_received"
-  | "mark_repaired"
-  | "mark_replaced"
-  | "mark_credited"
-  | "close";
+export type ActionInput = "none" | "message" | "optionalMessage" | "approve" | "reject";
 
-export interface ClaimTransition {
-  action: ClaimAction;
-  from: ClaimStatus;
+export interface ActionMeta {
+  /** POST /claims/{id}/{path} */
+  path: string;
+  tone: "primary" | "secondary" | "danger";
+  input: ActionInput;
+}
+
+export const ACTION_META: Record<ClaimAction, ActionMeta> = {
+  submit: { path: "submit", tone: "primary", input: "none" },
+  startReview: { path: "start-review", tone: "primary", input: "none" },
+  requestInfo: { path: "request-info", tone: "secondary", input: "message" },
+  respond: { path: "respond", tone: "primary", input: "message" },
+  approve: { path: "approve", tone: "primary", input: "approve" },
+  reject: { path: "reject", tone: "danger", input: "reject" },
+  close: { path: "close", tone: "secondary", input: "optionalMessage" },
+};
+
+/** Secondary and destructive actions first, so the primary one sits on the right (Section 5.1). */
+export function orderActions(actions: readonly ClaimAction[]): ClaimAction[] {
+  const weight = { danger: 0, secondary: 1, primary: 2 } as const;
+  return [...actions].sort((a, b) => weight[ACTION_META[a].tone] - weight[ACTION_META[b].tone]);
+}
+
+// ── Mirror of the server table (mocks and tests only) ──────────────
+
+interface Transition {
+  from: readonly ClaimStatus[];
   to: ClaimStatus;
   roles: readonly Role[];
-  /** Opens a modal that collects extra data (reason, resolution...) before submitting. */
-  requiresInput?: boolean;
-  tone?: "primary" | "secondary" | "danger";
 }
 
-const CUSTOMER: readonly Role[] = ["technician", "distributor", "admin"];
-const AGENT: readonly Role[] = ["claims_agent", "admin"];
-const SERVICE: readonly Role[] = ["service_center", "admin"];
+export const TRANSITIONS: Record<ClaimAction, Transition> = {
+  submit: { from: ["DRAFT"], to: "SUBMITTED", roles: ["technician", "distributor", "claims_agent", "admin"] },
+  startReview: { from: ["SUBMITTED"], to: "IN_REVIEW", roles: ["claims_agent", "admin"] },
+  requestInfo: { from: ["IN_REVIEW"], to: "NEEDS_INFO", roles: ["claims_agent", "admin"] },
+  respond: { from: ["NEEDS_INFO"], to: "IN_REVIEW", roles: ["technician", "distributor"] },
+  approve: { from: ["IN_REVIEW"], to: "APPROVED", roles: ["claims_agent", "admin"] },
+  reject: { from: ["IN_REVIEW"], to: "REJECTED", roles: ["claims_agent", "admin"] },
+  close: {
+    from: ["REPAIRED", "REPLACED", "CREDITED", "REJECTED"],
+    to: "CLOSED",
+    roles: ["claims_agent", "admin"],
+  },
+};
 
-export const CLAIM_TRANSITIONS: readonly ClaimTransition[] = [
-  { action: "submit", from: "DRAFT", to: "SUBMITTED", roles: CUSTOMER, tone: "primary" },
-  { action: "start_review", from: "SUBMITTED", to: "IN_REVIEW", roles: AGENT, tone: "primary" },
-  {
-    action: "request_info",
-    from: "IN_REVIEW",
-    to: "NEEDS_INFO",
-    roles: AGENT,
-    requiresInput: true,
-    tone: "secondary",
-  },
-  {
-    action: "respond",
-    from: "NEEDS_INFO",
-    to: "IN_REVIEW",
-    roles: CUSTOMER,
-    requiresInput: true,
-    tone: "primary",
-  },
-  {
-    action: "approve",
-    from: "IN_REVIEW",
-    to: "APPROVED",
-    roles: AGENT,
-    requiresInput: true,
-    tone: "primary",
-  },
-  { action: "reject", from: "IN_REVIEW", to: "REJECTED", roles: AGENT, requiresInput: true, tone: "danger" },
-  { action: "issue_rma", from: "APPROVED", to: "RMA_ISSUED", roles: AGENT, tone: "primary" },
-  {
-    action: "mark_in_transit",
-    from: "RMA_ISSUED",
-    to: "IN_TRANSIT",
-    roles: ["technician", "distributor", "service_center", "admin"],
-    requiresInput: true, // tracking number
-    tone: "primary",
-  },
-  { action: "mark_received", from: "IN_TRANSIT", to: "RECEIVED", roles: SERVICE, tone: "primary" },
-  {
-    action: "mark_repaired",
-    from: "RECEIVED",
-    to: "REPAIRED",
-    roles: SERVICE,
-    requiresInput: true,
-    tone: "primary",
-  },
-  {
-    action: "mark_replaced",
-    from: "RECEIVED",
-    to: "REPLACED",
-    roles: SERVICE,
-    requiresInput: true,
-    tone: "secondary",
-  },
-  {
-    action: "mark_credited",
-    from: "RECEIVED",
-    to: "CREDITED",
-    roles: SERVICE,
-    requiresInput: true,
-    tone: "secondary",
-  },
-  { action: "close", from: "REJECTED", to: "CLOSED", roles: AGENT, tone: "secondary" },
-  { action: "close", from: "REPAIRED", to: "CLOSED", roles: AGENT, tone: "secondary" },
-  { action: "close", from: "REPLACED", to: "CLOSED", roles: AGENT, tone: "secondary" },
-  { action: "close", from: "CREDITED", to: "CLOSED", roles: AGENT, tone: "secondary" },
-];
-
-/** Every transition out of `status`, ignoring role. */
-export function transitionsFrom(status: ClaimStatus): ClaimTransition[] {
-  return CLAIM_TRANSITIONS.filter((t) => t.from === status);
+export function allowedActions(status: ClaimStatus, roles: readonly Role[]): ClaimAction[] {
+  return (Object.keys(TRANSITIONS) as ClaimAction[]).filter((action) => {
+    const t = TRANSITIONS[action];
+    return t.from.includes(status) && t.roles.some((role) => roles.includes(role));
+  });
 }
 
-/** The actions `role` may take on a claim in `status`. */
-export function allowedTransitions(status: ClaimStatus, role: Role | undefined | null): ClaimTransition[] {
-  if (!role) return [];
-  return transitionsFrom(status).filter((t) => t.roles.includes(role));
-}
-
-export function canPerform(status: ClaimStatus, action: ClaimAction, role: Role | undefined | null): boolean {
-  return allowedTransitions(status, role).some((t) => t.action === action);
-}
-
-/** The status a claim moves to, or null when the action isn't valid from `status`. */
 export function nextStatus(status: ClaimStatus, action: ClaimAction): ClaimStatus | null {
-  return transitionsFrom(status).find((t) => t.action === action)?.to ?? null;
+  const t = TRANSITIONS[action];
+  return t.from.includes(status) ? t.to : null;
 }
 
-const TERMINAL: ReadonlySet<ClaimStatus> = new Set(["CLOSED"]);
-const OPEN_EXCLUDED: ReadonlySet<ClaimStatus> = new Set(["DRAFT", "CLOSED", "REJECTED"]);
+const RESOLVED: ReadonlySet<ClaimStatus> = new Set(["REPAIRED", "REPLACED", "CREDITED"]);
+const NOT_OPEN: ReadonlySet<ClaimStatus> = new Set(["DRAFT", "CLOSED", "REJECTED"]);
 
-export const isTerminal = (status: ClaimStatus) => TERMINAL.has(status);
+export const isTerminal = (status: ClaimStatus) => status === "CLOSED";
 
 /** "Open" for dashboards: submitted and not yet resolved or closed. */
-export const isOpen = (status: ClaimStatus) =>
-  !OPEN_EXCLUDED.has(status) && !["REPAIRED", "REPLACED", "CREDITED"].includes(status);
+export const isOpen = (status: ClaimStatus) => !NOT_OPEN.has(status) && !RESOLVED.has(status);
+
+export const OPEN_STATUSES: ClaimStatus[] = [
+  "SUBMITTED",
+  "IN_REVIEW",
+  "NEEDS_INFO",
+  "APPROVED",
+  "RMA_ISSUED",
+  "IN_TRANSIT",
+  "RECEIVED",
+];

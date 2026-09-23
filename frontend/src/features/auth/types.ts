@@ -1,13 +1,13 @@
-import type { Role, SessionUser } from "@/types";
+import type { Role } from "@/types";
 
-export interface AuthResponse {
-  accessToken: string;
-  user: SessionUser;
-}
-
-export interface LoginRequest {
+/** GET /me response. */
+export interface MeResponse {
+  id: string;
   email: string;
-  password: string;
-  /** Mock mode only: pick which role to sign in as. */
-  role?: Role;
+  displayName: string;
+  roles: Role[];
+  primaryRole: Role | null;
+  organization: { id: string; name: string; type: "fieldpiece" | "distributor" | "service_center" } | null;
+  currency: string;
+  permissions: string[];
 }

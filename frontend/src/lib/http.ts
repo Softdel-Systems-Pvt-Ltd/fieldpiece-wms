@@ -1,10 +1,10 @@
 import axios, { type AxiosError, type InternalAxiosRequestConfig } from "axios";
 import { toApiError } from "./api-error";
 import { env } from "./env";
+import { identity } from "./identity";
 
-// The one shared axios instance (Section 9).
-// Access token lives in memory only; the refresh token is an httpOnly cookie set by the API.
-// Never store tokens in localStorage.
+// The one shared axios instance for the API (Section 9).
+// The access token lives in memory only. Never store tokens in localStorage.
 
 let accessToken: string | null = null;
 
@@ -28,12 +28,9 @@ export function setAuthFailureHandler(handler: AuthFailureHandler) {
 
 export const http = axios.create({
   baseURL: env.apiBaseUrl,
-  withCredentials: true, // sends the httpOnly refresh cookie
   headers: { "Content-Type": "application/json" },
   timeout: 30_000,
 });
-
-const REFRESH_URL = "/auth/refresh";
 
 http.interceptors.request.use((config) => {
   const token = tokenStore.get();
@@ -45,11 +42,11 @@ http.interceptors.request.use((config) => {
 let refreshing: Promise<string> | null = null;
 
 export async function refreshAccessToken(): Promise<string> {
-  refreshing ??= http
-    .post<{ accessToken: string }>(REFRESH_URL, undefined, { skipAuthRefresh: true })
-    .then((res) => {
-      tokenStore.set(res.data.accessToken);
-      return res.data.accessToken;
+  refreshing ??= identity
+    .refresh()
+    .then((token) => {
+      tokenStore.set(token);
+      return token;
     })
     .finally(() => {
       refreshing = null;
@@ -62,8 +59,8 @@ http.interceptors.response.use(
   async (error: AxiosError) => {
     const original = error.config as (InternalAxiosRequestConfig & { _retried?: boolean }) | undefined;
 
-    // Refresh once on a 401, then log out (Section 9).
-    if (error.response?.status === 401 && original && !original._retried && !original.skipAuthRefresh) {
+    // Refresh once on a 401, then sign out (Section 9).
+    if (error.response?.status === 401 && original && !original._retried && tokenStore.get()) {
       original._retried = true;
       try {
         await refreshAccessToken();
@@ -76,10 +73,3 @@ http.interceptors.response.use(
     return Promise.reject(toApiError(error));
   },
 );
-
-declare module "axios" {
-  interface AxiosRequestConfig {
-    /** Skip the refresh-on-401 logic (public endpoints and the refresh call itself). */
-    skipAuthRefresh?: boolean;
-  }
-}

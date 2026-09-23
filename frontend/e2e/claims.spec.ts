@@ -18,7 +18,8 @@ test.describe("claims", () => {
     await expectNoA11yViolations(page);
     await dialog.getByRole("button", { name: "Approve" }).click();
 
-    await expect(page.getByText("Approved", { exact: true }).first()).toBeVisible();
+    // Approval issues the RMA in the same transaction, so the claim lands on RMA_ISSUED.
+    await expect(page.getByText("RMA issued", { exact: true }).first()).toBeVisible();
   });
 
   test("technician can't see the reports screen", async ({ page, signInAs }) => {

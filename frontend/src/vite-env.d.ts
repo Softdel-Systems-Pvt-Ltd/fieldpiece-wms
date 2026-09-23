@@ -7,6 +7,7 @@ interface ImportMetaEnv {
   readonly VITE_SENTRY_DSN?: string;
   readonly VITE_ENABLE_MOCKS?: string;
   readonly VITE_EXPIRING_SOON_DAYS?: string;
+  readonly VITE_REQUIRE_PROOF_OF_PURCHASE?: string;
 }
 
 interface ImportMeta {

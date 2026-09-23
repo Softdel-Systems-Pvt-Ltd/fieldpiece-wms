@@ -13,16 +13,6 @@ interface RejectClaimModalProps {
   pending?: boolean;
 }
 
-// TODO: move reason labels into locale files once the client confirms the list.
-const reasonLabel: Record<(typeof REJECTION_REASONS)[number], string> = {
-  out_of_warranty: "Out of warranty",
-  physical_damage: "Physical damage not covered",
-  misuse: "Misuse or improper use",
-  no_fault_found: "No fault found",
-  missing_proof_of_purchase: "Missing proof of purchase",
-  other: "Other",
-};
-
 export function RejectClaimModal({ open, onOpenChange, onConfirm, pending }: RejectClaimModalProps) {
   const { t } = useTranslation();
   const {
@@ -48,19 +38,19 @@ export function RejectClaimModal({ open, onOpenChange, onConfirm, pending }: Rej
       }
     >
       <form id="reject-claim" noValidate onSubmit={handleSubmit(onConfirm)} className="space-y-4">
-        <FormField label="Reason" error={errors.reason?.message} required>
+        <FormField label={t("claims.rejectReason")} error={errors.reason?.message} required>
           <NativeSelect defaultValue="" {...register("reason")}>
             <option value="" disabled>
-              Pick a reason
+              {t("claims.pickReason")}
             </option>
             {REJECTION_REASONS.map((reason) => (
               <option key={reason} value={reason}>
-                {reasonLabel[reason]}
+                {t(`claims.rejectionReasons.${reason}`)}
               </option>
             ))}
           </NativeSelect>
         </FormField>
-        <FormField label="Message to the customer" error={errors.message?.message} required>
+        <FormField label={t("claims.messageToCustomer")} error={errors.message?.message} required>
           <Textarea rows={5} {...register("message")} />
         </FormField>
       </form>

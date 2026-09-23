@@ -1,12 +1,19 @@
+import { mutationHeaders } from "@/lib/concurrency";
 import { http } from "@/lib/http";
 import type { Paginated, Rma } from "@/types";
-import type { InspectionRequest, RmaFilters } from "./types";
+import type { CompleteRequest, InspectRequest, RmaFilters, ShipInboundRequest } from "./types";
+
+const act =
+  <B>(path: string) =>
+  (id: string, version: number, body: B) =>
+    http.post<Rma>(`/rmas/${id}/${path}`, body, { headers: mutationHeaders(version) }).then((r) => r.data);
 
 export const rmaApi = {
-  list: (filters: RmaFilters) => http.get<Paginated<Rma>>("/rma", { params: filters }).then((r) => r.data),
-  get: (id: string) => http.get<Rma>(`/rma/${encodeURIComponent(id)}`).then((r) => r.data),
-  setTracking: (id: string, body: { inboundTracking?: string; outboundTracking?: string }) =>
-    http.patch<Rma>(`/rma/${encodeURIComponent(id)}`, body).then((r) => r.data),
-  inspect: (id: string, body: InspectionRequest) =>
-    http.post<Rma>(`/rma/${encodeURIComponent(id)}/inspection`, body).then((r) => r.data),
+  list: (filters: RmaFilters) => http.get<Paginated<Rma>>("/rmas", { params: filters }).then((r) => r.data),
+  get: (id: string) => http.get<Rma>(`/rmas/${id}`).then((r) => r.data),
+  shipInbound: act<ShipInboundRequest>("ship-inbound"),
+  receive: act<{ note?: string }>("receive"),
+  inspect: act<InspectRequest>("inspect"),
+  complete: act<CompleteRequest>("complete"),
+  cancel: act<{ reason: string }>("cancel"),
 };

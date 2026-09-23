@@ -5,42 +5,35 @@ import { useTranslation } from "react-i18next";
 import { Link, Navigate, useLocation, useNavigate } from "react-router-dom";
 import { toast } from "@/components/feedback";
 import { AuthLayout } from "@/components/layout";
-import { Button, Card, FormField, Input, NativeSelect } from "@/components/ui";
-import { applyFieldErrors, toApiError } from "@/lib/api-error";
-import { env } from "@/lib/env";
+import { Button, Card, FormField, NativeSelect } from "@/components/ui";
+import { toApiError } from "@/lib/api-error";
+import { isDevIdentity } from "@/lib/env";
 import { useSession } from "@/lib/session";
 import type { Role } from "@/types";
-import { useLogin } from "../hooks";
-import { loginSchema, type LoginForm } from "../schemas";
-
-const ROLES: Role[] = ["technician", "distributor", "claims_agent", "service_center", "admin"];
+import { useDevIdentities, useSignIn } from "../hooks";
+import { devSignInSchema, type DevSignInForm } from "../schemas";
 
 export default function LoginPage() {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const location = useLocation();
   const status = useSession((s) => s.status);
-  const login = useLogin();
+  const signIn = useSignIn();
+  const identities = useDevIdentities();
   const from = (location.state as { from?: string } | null)?.from ?? "/";
 
   const {
     register,
     handleSubmit,
-    setError,
     formState: { errors },
-  } = useForm<LoginForm>({
-    resolver: zodResolver(loginSchema),
-    defaultValues: { email: "", password: "", role: env.enableMocks ? "technician" : undefined },
-  });
+  } = useForm<DevSignInForm>({ resolver: zodResolver(devSignInSchema), defaultValues: { email: "" } });
 
   if (status === "authenticated") return <Navigate to={from} replace />;
 
-  const onSubmit = handleSubmit((values) =>
-    login.mutate(values, {
+  const onSubmit = handleSubmit(({ email }) =>
+    signIn.mutate(email, {
       onSuccess: () => navigate(from, { replace: true }),
-      onError: (error) => {
-        if (!applyFieldErrors(error, setError)) toast.error(toApiError(error).message);
-      },
+      onError: (error) => toast.error(toApiError(error).message),
     }),
   );
 
@@ -48,40 +41,30 @@ export default function LoginPage() {
     <AuthLayout>
       <Card as="div">
         <h1 className="mb-6 text-h1">{t("auth.signInTitle")}</h1>
-        {env.enableMocks ? (
-          <p className="mb-4 rounded bg-info-bg p-3 text-sm text-info">{t("auth.mockNotice")}</p>
-        ) : null}
-        <form onSubmit={onSubmit} noValidate className="space-y-4">
-          <FormField label={t("fields.email")} error={errors.email?.message} required>
-            <Input type="email" autoComplete="email" {...register("email")} />
-          </FormField>
-          <FormField
-            label={t("fields.password")}
-            error={errors.password?.message}
-            required
-            labelAction={
-              <Link to="/forgot-password" className="text-sm text-info underline underline-offset-2">
-                {t("auth.forgotPassword")}
-              </Link>
-            }
-          >
-            <Input type="password" autoComplete="current-password" {...register("password")} />
-          </FormField>
-          {env.enableMocks ? (
-            <FormField label={t("auth.mockRole")}>
-              <NativeSelect {...register("role")}>
-                {ROLES.map((role) => (
-                  <option key={role} value={role}>
-                    {t(`roles.${role}`)}
-                  </option>
-                ))}
-              </NativeSelect>
-            </FormField>
-          ) : null}
-          <Button type="submit" size="lg" icon={LogIn} loading={login.isPending} className="w-full">
-            {t("auth.signIn")}
-          </Button>
-        </form>
+        {isDevIdentity ? (
+          <>
+            <p className="mb-4 rounded bg-info-bg p-3 text-sm text-info">{t("auth.devNotice")}</p>
+            <form onSubmit={onSubmit} noValidate className="space-y-4">
+              <FormField label={t("auth.signInAs")} error={errors.email?.message} required>
+                <NativeSelect disabled={identities.isLoading} {...register("email")}>
+                  <option value="">{identities.isLoading ? t("common.loading") : "—"}</option>
+                  {identities.data?.map((identity) => (
+                    <option key={identity.email} value={identity.email}>
+                      {identity.displayName} · {identity.roles.map((r) => t(`roles.${r as Role}`)).join(", ")}
+                    </option>
+                  ))}
+                </NativeSelect>
+              </FormField>
+              {identities.isError ? <p className="text-sm text-danger">{t("auth.idpUnavailable")}</p> : null}
+              <Button type="submit" size="lg" icon={LogIn} loading={signIn.isPending} className="w-full">
+                {t("auth.signIn")}
+              </Button>
+            </form>
+          </>
+        ) : (
+          // TODO: OIDC Authorization Code + PKCE redirect via oidc-client-ts once the IdP is chosen. [CONFIRM]
+          <p className="text-body text-text-muted">{t("auth.oidcPending")}</p>
+        )}
       </Card>
       <p className="mt-6 text-center text-body">
         <Link to="/check" className="text-info underline underline-offset-2">

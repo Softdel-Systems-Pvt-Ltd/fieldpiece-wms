@@ -5,8 +5,9 @@ import type { RegistrationFilters } from "./types";
 export const registrationKeys = {
   all: ["registrations"] as const,
   list: (filters: RegistrationFilters) => ["registrations", filters] as const,
-  bySerial: (serial: string) => ["registration", serial] as const,
-  products: ["products"] as const,
+  detail: (id: string) => ["registration", id] as const,
+  products: ["products", "catalogue"] as const,
+  import: (jobId: string) => ["import", jobId] as const,
 };
 
 export function useRegistrations(filters: RegistrationFilters) {
@@ -30,5 +31,18 @@ export function useCreateRegistration() {
   return useMutation({
     mutationFn: registrationsApi.create,
     onSuccess: () => qc.invalidateQueries({ queryKey: registrationKeys.all }),
+  });
+}
+
+/** Polls an import job until it finishes. */
+export function useImportStatus(jobId: string | null) {
+  return useQuery({
+    queryKey: registrationKeys.import(jobId ?? ""),
+    queryFn: () => registrationsApi.importStatus(jobId ?? ""),
+    enabled: !!jobId,
+    refetchInterval: (query) => {
+      const state = query.state.data?.state;
+      return state === "completed" || state === "failed" ? false : 1500;
+    },
   });
 }

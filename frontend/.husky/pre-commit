@@ -1,1 +1,5 @@
-cd frontend && npx lint-staged
+# Lint and format staged files in whichever app changed.
+# TODO: add `gitleaks protect --staged` once gitleaks is installed on dev machines (backend Section 4).
+# --concurrent false: type-aware ESLint loads the whole TS program per process. Big commits get split into chunks, and
+# running those chunks in parallel runs out of memory (tasks end as "KILLED" with no output), so run them one at a time.
+(cd frontend && npx lint-staged --concurrent false) && (cd backend && npx lint-staged --concurrent false)

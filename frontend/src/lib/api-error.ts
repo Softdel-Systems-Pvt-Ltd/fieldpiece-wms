@@ -2,18 +2,28 @@ import { isAxiosError } from "axios";
 import type { FieldValues, Path, UseFormSetError } from "react-hook-form";
 import type { ApiErrorBody } from "@/types";
 
-/** Normalised error for every failed API call (Section 9). */
+/** Normalised error for every failed API call (backend Section 6.4). */
 export class ApiError extends Error {
   readonly status: number;
   readonly code: string;
-  readonly fieldErrors?: Record<string, string>;
+  /** First message per field, keyed by the API's dotted path (e.g. "customer.address.line1"). */
+  readonly fieldErrors: Record<string, string>;
+  readonly details: Record<string, unknown>;
+  readonly requestId?: string;
 
   constructor(status: number, body: ApiErrorBody) {
     super(body.message);
     this.name = "ApiError";
     this.status = status;
     this.code = body.code;
-    this.fieldErrors = body.fieldErrors;
+    this.requestId = body.requestId;
+    this.details = body.details ?? {};
+    this.fieldErrors = Object.fromEntries(
+      Object.entries(body.fieldErrors ?? {}).map(([field, messages]) => [
+        field,
+        Array.isArray(messages) ? (messages[0] ?? "") : messages,
+      ]),
+    );
   }
 }
 
@@ -34,33 +44,36 @@ export function toApiError(error: unknown): ApiError {
     if (isApiErrorBody(data)) return new ApiError(status, data);
     if (status === 0) {
       return new ApiError(0, {
-        code: "network_error",
+        code: "NETWORK_ERROR",
         message: "Can't reach the server. Check your connection and try again.",
       });
     }
     if (status === 429) {
       return new ApiError(429, {
-        code: "rate_limited",
-        message: "Too many checks in a short time. Wait a minute, then try again.",
+        code: "RATE_LIMITED",
+        message: "Too many requests in a short time. Wait a minute, then try again.",
       });
     }
-    return new ApiError(status, { code: `http_${status}`, message: "Something went wrong. Try again." });
+    return new ApiError(status, { code: "INTERNAL_ERROR", message: "Something went wrong. Try again." });
   }
-  return new ApiError(0, { code: "unknown", message: "Something went wrong. Try again." });
+  return new ApiError(0, { code: "INTERNAL_ERROR", message: "Something went wrong. Try again." });
 }
 
 /**
- * Maps `fieldErrors` from the API onto react-hook-form fields.
+ * Maps the API's field errors onto react-hook-form fields. `fieldMap` translates API paths to form field
+ * names where they differ (e.g. { "customer.contactName": "ownerName" }).
  * Returns true when at least one field error was applied (so the caller can skip a toast).
  */
 export function applyFieldErrors<T extends FieldValues>(
   error: unknown,
   setError: UseFormSetError<T>,
+  fieldMap: Record<string, Path<T>> = {},
 ): boolean {
   const apiError = toApiError(error);
-  const entries = Object.entries(apiError.fieldErrors ?? {});
+  const entries = Object.entries(apiError.fieldErrors);
   entries.forEach(([field, message], index) => {
-    setError(field as Path<T>, { type: "server", message }, { shouldFocus: index === 0 });
+    const target = fieldMap[field] ?? (field as Path<T>);
+    setError(target, { type: "server", message }, { shouldFocus: index === 0 });
   });
   return entries.length > 0;
 }

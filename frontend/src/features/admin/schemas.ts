@@ -1,19 +1,27 @@
 import { z } from "zod";
 
-export const policySchema = z.object({
-  sku: z.string().min(1, "Pick a SKU, or * for all products."),
-  baseMonths: z.coerce.number().int().min(1, "Warranty must be at least 1 month."),
-  extensionMonthsOnRegistration: z.coerce.number().int().min(0).optional(),
-  coverage: z.array(z.string()).min(1, "Add at least one coverage item."),
-  exclusions: z.array(z.string()),
-  effectiveFrom: z.string().min(1, "Pick the date this policy starts."),
-});
-export type PolicyForm = z.infer<typeof policySchema>;
+/** Comma-separated list in a text input -> array (done on submit, so the form keeps plain strings). */
+export const splitList = (value: string | undefined) =>
+  (value ?? "")
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
 
-export const settingsSchema = z.object({
-  expiringSoonDays: z.coerce.number().int().min(1).max(365),
-  slaHours: z.object({
-    review: z.coerce.number().int().min(1),
-    rmaTurnaround: z.coerce.number().int().min(1),
-  }),
-});
+export const policySchema = z
+  .object({
+    sku: z.string().trim().toUpperCase().optional(),
+    baseMonths: z.coerce.number().int().min(0, "Can't be negative.").max(240),
+    registrationBonusMonths: z.coerce.number().int().min(0).max(120),
+    registrationWindowDays: z.union([z.literal(""), z.coerce.number().int().min(0).max(3650)]),
+    coverage: z.string().optional(),
+    exclusions: z.string().optional(),
+    effectiveFrom: z.string().min(1, "Pick the date this policy starts."),
+    effectiveTo: z.string().optional(),
+  })
+  .refine((v) => !v.effectiveTo || v.effectiveTo > v.effectiveFrom, {
+    path: ["effectiveTo"],
+    message: "Must be after the start date.",
+  });
+
+export type PolicyFormInput = z.input<typeof policySchema>;
+export type PolicyFormValues = z.output<typeof policySchema>;

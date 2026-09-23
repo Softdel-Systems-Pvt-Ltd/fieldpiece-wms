@@ -4,18 +4,18 @@ import { toIsoDate } from "./format";
 const NOW = new Date(2026, 8, 23); // 23 Sep 2026
 
 describe("computeWarrantyEnd", () => {
-  it("adds the base months", () => {
-    expect(toIsoDate(computeWarrantyEnd("2026-03-14", { baseMonths: 24 }))).toBe("2028-03-14");
+  it("adds the base months, ending the day before the anniversary", () => {
+    expect(toIsoDate(computeWarrantyEnd("2026-03-14", { baseMonths: 24 }))).toBe("2028-03-13");
   });
 
-  it("adds the registration extension when the policy has one", () => {
-    expect(
-      toIsoDate(computeWarrantyEnd("2026-03-14", { baseMonths: 24, extensionMonthsOnRegistration: 12 })),
-    ).toBe("2029-03-14");
+  it("adds the registration bonus when the policy has one", () => {
+    expect(toIsoDate(computeWarrantyEnd("2026-03-14", { baseMonths: 24, registrationBonusMonths: 12 }))).toBe(
+      "2029-03-13",
+    );
   });
 
   it("clamps month-end dates", () => {
-    expect(toIsoDate(computeWarrantyEnd(new Date(2026, 0, 31), { baseMonths: 1 }))).toBe("2026-02-28");
+    expect(toIsoDate(computeWarrantyEnd(new Date(2026, 0, 31), { baseMonths: 1 }))).toBe("2026-02-27");
   });
 });
 

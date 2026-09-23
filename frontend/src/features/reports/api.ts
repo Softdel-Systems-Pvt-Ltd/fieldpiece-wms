@@ -1,16 +1,22 @@
 import { http } from "@/lib/http";
-import type { ReportFilters, TimeSeriesPoint } from "./types";
+import type { ClaimRateRow, CostRow, FailureCategoryRow, ReportFilters, ResolutionTimeRow } from "./types";
 
-// TODO: agree endpoint shapes with the backend team (Section 8.7).
+interface ClaimsSummary {
+  from: string;
+  to: string;
+  claimsOverTime: { date: string; count: number }[];
+}
+
+const get = <T>(path: string, filters: ReportFilters) =>
+  http.get<T>(`/reports/${path}`, { params: filters }).then((r) => r.data);
+
 export const reportsApi = {
-  claimsOverTime: (filters: ReportFilters) =>
-    http.get<TimeSeriesPoint[]>("/reports/claims-over-time", { params: filters }).then((r) => r.data),
-  claimRateBySku: (filters: ReportFilters) =>
-    http
-      .get<{ sku: string; rate: number }[]>("/reports/claim-rate-by-sku", { params: filters })
-      .then((r) => r.data),
-  exportCsv: (report: string, filters: ReportFilters) =>
-    http
-      .get<Blob>(`/reports/${report}/export`, { params: filters, responseType: "blob" })
-      .then((r) => r.data),
+  summary: (f: ReportFilters) => get<ClaimsSummary>("claims-summary", f),
+  claimRate: (f: ReportFilters) =>
+    get<{ items: ClaimRateRow[] }>("claim-rate-by-sku", f).then((r) => r.items),
+  failureCategories: (f: ReportFilters) =>
+    get<{ items: FailureCategoryRow[] }>("failure-categories", f).then((r) => r.items),
+  resolutionTime: (f: ReportFilters) =>
+    get<{ items: ResolutionTimeRow[] }>("resolution-time", f).then((r) => r.items),
+  cost: (f: ReportFilters) => get<{ items: CostRow[] }>("cost", f).then((r) => r.items),
 };

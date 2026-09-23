@@ -3,8 +3,8 @@ import type { SessionUser } from "@/types";
 import { setAuthFailureHandler, tokenStore } from "./http";
 import { queryClient } from "./query-client";
 
-// Client auth session (Zustand, Section 2.1). Not persisted: on reload the app restores
-// the session through the httpOnly refresh cookie (see features/auth).
+// Client auth session (Zustand, Section 2.1). Not persisted: on reload the app restores the session
+// through the identity provider's session (see features/auth).
 
 type SessionStatus = "unknown" | "authenticated" | "anonymous";
 

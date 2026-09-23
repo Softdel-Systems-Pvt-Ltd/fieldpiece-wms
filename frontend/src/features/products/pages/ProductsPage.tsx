@@ -24,11 +24,11 @@ export default function ProductsPage() {
         </div>
       ) : query.error ? (
         <ErrorState error={query.error} onRetry={() => void query.refetch()} />
-      ) : !query.data?.length ? (
+      ) : !query.data?.items.length ? (
         <EmptyState icon={Package} message={t("common.comingSoon")} />
       ) : (
         <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {query.data.map((p) => (
+          {query.data.items.map((p) => (
             <li key={p.sku}>
               <Link to={`/products/${p.sku}`} className="block rounded-lg hover:ring-2 hover:ring-ink-1000">
                 <Card as="article" className="flex gap-4">
@@ -43,7 +43,9 @@ export default function ProductsPage() {
                   <div>
                     <h2 className="text-h3">{p.name}</h2>
                     <p className="font-mono text-sm">{p.sku}</p>
-                    <p className="mt-1 text-sm text-text-muted">{p.warrantyMonths} months</p>
+                    <p className="mt-1 text-sm text-text-muted">
+                      {p.warrantyMonths ? t("products.months", { count: p.warrantyMonths }) : "—"}
+                    </p>
                   </div>
                 </Card>
               </Link>

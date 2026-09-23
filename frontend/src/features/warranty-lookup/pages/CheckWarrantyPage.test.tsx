@@ -8,7 +8,7 @@ describe("CheckWarrantyPage", () => {
     await user.type(screen.getByLabelText(/serial number/i), "sc680-100037");
     await user.click(screen.getByRole("button", { name: "Check warranty" }));
 
-    expect(await screen.findByRole("heading", { name: "Clamp meter" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Wireless clamp meter" })).toBeInTheDocument();
     expect(screen.getByText("SC680-100037")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: /file a claim/i })).toBeInTheDocument();
   });

@@ -1,13 +1,25 @@
-import type { PageParams, RmaStatus } from "@/types";
+import type { PageParams } from "@/types";
 
 export interface RmaFilters extends PageParams {
-  status?: RmaStatus;
+  /** Comma-separated statuses, e.g. "ISSUED,IN_TRANSIT". */
+  status?: string;
 }
 
-export interface InspectionRequest {
+export interface ShipInboundRequest {
+  trackingNumber: string;
+  carrier?: string;
+}
+
+export interface InspectRequest {
   findings: string;
   rootCause: string;
   partsUsed: string[];
-  outcome: "repaired" | "replaced" | "scrapped";
-  replacementSerial?: string; // [CONFIRM] replacement warranty rule
+}
+
+export interface CompleteRequest {
+  outboundTracking?: string;
+  outboundCarrier?: string;
+  replacementSerial?: string; // replace only [CONFIRM replacement warranty rule]
+  creditAmount?: number; // credit only
+  creditCurrency?: string;
 }

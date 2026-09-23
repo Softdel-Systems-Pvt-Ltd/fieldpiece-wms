@@ -8,16 +8,35 @@ Zustand, react-hook-form + zod, Recharts, i18next, MSW, Vitest, Playwright.
 
 ## Getting started
 
+**Against the real backend** (the default). Start the backend first (see [../backend/README.md](../backend/README.md)):
+
 ```bash
 cd frontend
 npm install
-npm run dev:mock     # runs against MSW mocks, no backend needed -> http://localhost:5173
+npm run dev          # uses .env.development -> API on http://localhost:3000/api/v1
 ```
 
-In mock mode the sign-in screen has a **Sign in as** picker, so you can try every role. Any email and password work.
-Useful mock serials: `SC680-100037` (registered), `ZZZ-999999` (not found), `RATELIMIT` (429 response).
+Sign in by picking a seeded user in the **Sign in as** list (`tech@`, `dist@`, `agent@`, `svc@` or
+`admin@example.com`). The dev identity provider has no passwords. Roles come from the backend, so what you see matches
+what the API allows.
 
-To run against a real API, copy `.env.example` to `.env.local`, set `VITE_API_BASE_URL`, and run `npm run dev`.
+**Without a backend:**
+
+```bash
+npm run dev:mock     # MSW mocks that follow the same API contract, no backend needed
+```
+
+Useful serials in mock mode: `SC680-100037` (registered), `ZZZ-999999` (not found), `RATELIMIT` (429 response).
+
+| Variable                         | Purpose                                                           |
+| -------------------------------- | ----------------------------------------------------------------- |
+| `VITE_API_BASE_URL`              | API base, including `/api/v1`                                     |
+| `VITE_OIDC_AUTHORITY`            | Identity provider. The dev IdP is `http://localhost:3000/dev-idp` |
+| `VITE_ENABLE_MOCKS`              | `true` starts MSW                                                 |
+| `VITE_REQUIRE_PROOF_OF_PURCHASE` | Must match the backend's `REQUIRE_PROOF_OF_PURCHASE`              |
+
+Put overrides in `.env.local` (git-ignored). If port 5173 is busy, Vite falls back to 5174. The backend's CORS and MinIO
+settings allow both.
 
 ## Scripts
 
@@ -57,21 +76,28 @@ src/
 - **Features don't import each other's internals** (`@/features/x/...` is blocked inside `features/`). Shared code
   goes in `components/`, `lib/` or `types/`.
 - **No default exports**, except route pages. **No `any`.**
-- **Claim actions come only from `features/claims/transitions.ts`.** Don't hard-code status checks in components.
-- **Tokens stay in memory.** Never put an access token in `localStorage`.
+- **Claim and RMA buttons come from the server's `allowedActions`.** `features/claims/transitions.ts` only holds labels,
+  icons and modal wiring for each action. Don't hard-code status checks in components.
+- **Tokens stay in memory.** Never put an access token in `localStorage`. The refresh token is an httpOnly cookie.
+- **Edits send `If-Match`, creates send `Idempotency-Key`** (`lib/concurrency.ts`). A 409 `STALE_VERSION` shows a
+  "someone else changed this" message and refetches.
+- **Files go straight to storage** with a presigned URL (`lib/uploads.ts`), then the app polls until the scan is clean.
 - **UI hiding isn't security.** `lib/permissions.ts` and `RequireRole` only decide what to show; the API enforces access.
 
 ## Build status
 
-| Area                                                                                                   | State                                                               |
-| ------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------- |
-| Shell, nav, theming, i18n, auth session + refresh, error mapping, toasts                               | Done                                                                |
-| Design-system primitives (Section 5)                                                                   | Done                                                                |
-| Public warranty check (8.1)                                                                            | Done                                                                |
-| Claims list, claim detail with state-machine actions, approve/reject modals, timeline + internal notes | Done                                                                |
-| Register product (8.3), file claim (8.4)                                                               | Working flows; uploads, SKU picker images and address step are TODO |
-| Dashboard (8.2)                                                                                        | KPIs + status chart; role-specific lists TODO                       |
-| RMA detail, reports, customers, products detail, admin, bulk registration                              | Routed placeholders with the checklist from the build guide         |
+Every screen in Section 6.2 is wired to the real API. A browser run against the live stack covers: technician registers a
+product with a receipt, files a claim; agent reviews and approves (RMA issued); service center receives, inspects and
+completes the RMA; claim ends as Repaired.
+
+| Area                                                                                  | State |
+| ------------------------------------------------------------------------------------- | ----- |
+| Sign-in (dev IdP), session refresh, `/me`, role-based nav, error mapping              | Done  |
+| Public warranty check, register product (with upload), bulk registration import       | Done  |
+| File claim (autosave, photos), claims list, claim detail, comments and internal notes | Done  |
+| RMA list and detail (receive, inspect, ship, complete, printable label)               | Done  |
+| Dashboard per role, customers, products, reports with CSV, admin users and policies   | Done  |
+| Spanish and French strings                                                            | Stubs |
 
 Search the code for `TODO` and `[CONFIRM]` to find open work.
 
@@ -89,7 +115,7 @@ Search the code for `TODO` and `[CONFIRM]` to find open work.
 
 ## Open items for Fieldpiece
 
-See Section 15 of the build guide. Items that block frontend work: identity provider (auth is mocked behind
-`features/auth/api.ts`), serial formats per SKU (`lib/serial.ts`), warranty terms, out-of-warranty claims, replacement
+See Section 15 of the build guide. Items that block frontend work: identity provider (the dev IdP stands in behind
+`lib/identity.ts`), serial formats per SKU (`lib/serial.ts`), warranty terms, out-of-warranty claims, replacement
 warranty rule, Myriad Pro licence (Source Sans 3 is the fallback), and the languages to support (es/fr are stubs and
 fall back to English).

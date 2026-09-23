@@ -8,7 +8,7 @@ test.describe("public warranty check", () => {
     await page.getByLabel(/serial number/i).fill("sc680-100037");
     await page.getByRole("button", { name: "Check warranty" }).click();
 
-    await expect(page.getByRole("heading", { name: "Clamp meter" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Wireless clamp meter" })).toBeVisible();
     await expect(page.getByRole("link", { name: /file a claim/i })).toBeVisible();
     await expectNoA11yViolations(page);
   });

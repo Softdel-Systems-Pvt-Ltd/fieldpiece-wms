@@ -70,13 +70,9 @@ export const routes: RouteObject[] = [
               ["distributor", "admin"],
               [{ path: "registrations/bulk", element: <BulkRegistrationPage /> }],
             ),
-            guarded(
-              ["claims_agent", "service_center", "admin"],
-              [
-                { path: "rma", element: <RmaListPage /> },
-                { path: "rma/:id", element: <RmaDetailPage /> },
-              ],
-            ),
+            // Customers open their own claim's RMA to record shipping; the API scopes the detail.
+            { path: "rma/:id", element: <RmaDetailPage /> },
+            guarded(["claims_agent", "service_center", "admin"], [{ path: "rma", element: <RmaListPage /> }]),
             guarded(
               ["distributor", "claims_agent", "admin"],
               [

@@ -1,25 +1,17 @@
 import { createColumnHelper } from "@tanstack/react-table";
-import { ClipboardPlus, Download, Search } from "lucide-react";
+import { ClipboardPlus, Search } from "lucide-react";
 import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router-dom";
 import { PageHeader } from "@/components/layout";
-import {
-  buttonVariants,
-  Button,
-  ClaimStatusBadge,
-  DataTable,
-  Input,
-  MonoId,
-  NativeSelect,
-} from "@/components/ui";
+import { buttonVariants, ClaimStatusBadge, DataTable, Input, MonoId, NativeSelect } from "@/components/ui";
 import { formatDate } from "@/lib/format";
 import { can } from "@/lib/permissions";
 import { useCurrentRole } from "@/lib/session";
 import { useTableParams } from "@/lib/use-table-params";
-import type { Claim, ClaimStatus } from "@/types";
+import type { ClaimStatus, ClaimSummary } from "@/types";
 import { SlaCountdown } from "../components/SlaCountdown";
-import { useClaims } from "../hooks";
+import { useClaims, useFailureCategories } from "../hooks";
 
 const STATUSES: ClaimStatus[] = [
   "DRAFT",
@@ -37,56 +29,71 @@ const STATUSES: ClaimStatus[] = [
   "CLOSED",
 ];
 
-const col = createColumnHelper<Claim>();
+const col = createColumnHelper<ClaimSummary>();
 
 export default function ClaimsListPage() {
   const { t, i18n } = useTranslation();
   const role = useCurrentRole();
+  const isReviewer = can(role, "claims:review");
   const [params, update] = useTableParams({ sort: "-updatedAt" });
-  const [search, setSearch] = useState(params.q ?? "");
-  const status = params.filters.status as ClaimStatus | undefined;
+  const [search, setSearch] = useState(params.q ?? params.filters.displayNo ?? "");
+  const categories = useFailureCategories();
+  const categoryLabel = useMemo(
+    () => new Map((categories.data ?? []).map((c) => [c.code, c.label])),
+    [categories.data],
+  );
   const query = useClaims({
     page: params.page,
     pageSize: params.pageSize,
     sort: params.sort,
     q: params.q,
-    status,
+    status: params.filters.status,
+    assignedTo: params.filters.assignedTo,
+    displayNo: params.filters.displayNo,
   });
 
   const columns = useMemo(
     () => [
-      col.accessor("id", {
+      col.accessor("displayNo", {
         header: t("claims.columns.id"),
         cell: (info) => (
-          <Link to={`/claims/${info.getValue()}`} className="underline-offset-2 hover:underline">
+          <Link to={`/claims/${info.row.original.id}`} className="underline-offset-2 hover:underline">
             <MonoId>{info.getValue()}</MonoId>
           </Link>
         ),
       }),
       col.accessor("serialNumber", {
         header: t("claims.columns.serial"),
+        enableSorting: false,
         cell: (info) => <MonoId>{info.getValue()}</MonoId>,
       }),
-      col.accessor("sku", { header: t("claims.columns.sku") }),
+      col.accessor("sku", { header: t("claims.columns.sku"), enableSorting: false }),
       col.accessor("failureCategory", {
         header: t("claims.columns.category"),
         enableSorting: false,
-        cell: (info) => t(`claims.failure.${info.getValue()}`),
+        cell: (info) => categoryLabel.get(info.getValue()) ?? info.getValue(),
       }),
       col.accessor("status", {
         header: t("claims.columns.status"),
         cell: (info) => <ClaimStatusBadge status={info.getValue()} />,
       }),
+      col.accessor((row) => row.assignee?.name ?? "", {
+        id: "assignee",
+        header: t("claims.assignee"),
+        enableSorting: false,
+        cell: (info) =>
+          info.getValue() || <span className="text-text-muted">{t("claims.unassignedLabel")}</span>,
+      }),
       col.accessor("slaDueAt", {
         header: t("claims.columns.sla"),
-        cell: (info) => <SlaCountdown dueAt={info.getValue()} />,
+        cell: (info) => <SlaCountdown dueAt={info.getValue() ?? undefined} />,
       }),
       col.accessor("updatedAt", {
         header: t("claims.columns.updated"),
         cell: (info) => formatDate(info.getValue(), i18n.language),
       }),
     ],
-    [t, i18n.language],
+    [t, i18n.language, categoryLabel],
   );
 
   return (
@@ -118,7 +125,6 @@ export default function ClaimsListPage() {
         error={query.error}
         onRetry={() => void query.refetch()}
         emptyMessage={t("claims.empty")}
-        selectable={can(role, "claims:review")}
         toolbar={
           <>
             <form
@@ -126,7 +132,7 @@ export default function ClaimsListPage() {
               className="relative w-full sm:w-72"
               onSubmit={(e) => {
                 e.preventDefault();
-                update({ q: search.trim() });
+                update({ q: search.trim(), displayNo: undefined });
               }}
             >
               <label htmlFor="claims-search" className="sr-only">
@@ -153,7 +159,7 @@ export default function ClaimsListPage() {
             <NativeSelect
               id="claims-status"
               className="w-full sm:w-48"
-              value={status ?? ""}
+              value={params.filters.status ?? ""}
               onChange={(e) => update({ status: e.target.value })}
             >
               <option value="">{t("claims.allStatuses")}</option>
@@ -163,10 +169,23 @@ export default function ClaimsListPage() {
                 </option>
               ))}
             </NativeSelect>
-            {/* TODO: column picker and server-side CSV export (GET /claims/export?...) */}
-            <Button variant="ghost" icon={Download} className="sm:ms-auto">
-              {t("common.exportCsv")}
-            </Button>
+            {isReviewer ? (
+              <>
+                <label htmlFor="claims-assignee" className="sr-only">
+                  {t("claims.assignee")}
+                </label>
+                <NativeSelect
+                  id="claims-assignee"
+                  className="w-full sm:w-44"
+                  value={params.filters.assignedTo ?? ""}
+                  onChange={(e) => update({ assignedTo: e.target.value })}
+                >
+                  <option value="">{t("claims.anyAssignee")}</option>
+                  <option value="me">{t("claims.assignedToMe")}</option>
+                  <option value="unassigned">{t("claims.unassignedLabel")}</option>
+                </NativeSelect>
+              </>
+            ) : null}
           </>
         }
       />

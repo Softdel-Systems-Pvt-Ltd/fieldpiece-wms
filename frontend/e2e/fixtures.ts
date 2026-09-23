@@ -11,13 +11,22 @@ export async function expectNoA11yViolations(page: Page) {
 
 type Role = "technician" | "distributor" | "claims_agent" | "service_center" | "admin";
 
+/** Seeded test identities (backend prisma/seed.ts and the MSW mocks use the same emails). */
+const EMAIL: Record<Role, string> = {
+  technician: "tech@example.com",
+  distributor: "dist@example.com",
+  claims_agent: "agent@example.com",
+  service_center: "svc@example.com",
+  admin: "admin@example.com",
+};
+
 export const test = base.extend<{ signInAs: (role: Role) => Promise<void> }>({
   signInAs: async ({ page }, use) => {
     await use(async (role) => {
       await page.goto("/login");
-      await page.getByLabel("Email").fill(`${role}@example.com`);
-      await page.getByLabel("Password").fill("mock-password");
-      await page.getByLabel(/sign in as/i).selectOption(role);
+      const picker = page.getByLabel(/sign in as/i);
+      await picker.locator(`option[value="${EMAIL[role]}"]`).waitFor({ state: "attached" });
+      await picker.selectOption(EMAIL[role]);
       await page.getByRole("button", { name: "Sign in" }).click();
       await page.waitForURL("/");
     });

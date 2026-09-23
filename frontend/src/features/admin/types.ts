@@ -1,15 +1,23 @@
-import type { Role } from "@/types";
+import type { PageParams, Role } from "@/types";
 
-export interface AdminUser {
-  id: string;
-  name: string;
-  email: string;
-  role: Role;
-  active: boolean;
-  lastSignInAt?: string;
+export interface UserFilters extends PageParams {
+  role?: Role;
+  active?: "true" | "false";
 }
 
-export interface AppSettings {
-  expiringSoonDays: number;
-  slaHours: { review: number; rmaTurnaround: number }; // [CONFIRM] SLA targets
+export interface UpdateUserRequest {
+  roles?: Role[];
+  isActive?: boolean;
+  displayName?: string;
+}
+
+export interface CreatePolicyRequest {
+  sku: string | null;
+  baseMonths: number;
+  registrationBonusMonths: number;
+  registrationWindowDays: number | null;
+  coverage: string[];
+  exclusions: string[];
+  effectiveFrom: string;
+  effectiveTo: string | null;
 }
