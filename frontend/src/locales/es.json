@@ -1,0 +1,20 @@
+{
+  "app": { "name": "Garantía", "skipToContent": "Ir al contenido" },
+  "topbar": { "help": "Ayuda", "language": "Idioma" },
+  "nav": {
+    "dashboard": "Panel",
+    "registrations": "Registros",
+    "claims": "Reclamos",
+    "rma": "RMA",
+    "customers": "Clientes",
+    "products": "Productos",
+    "reports": "Informes",
+    "admin": "Administración",
+    "checkWarranty": "Consultar garantía"
+  },
+  "check": {
+    "title": "Consultar garantía",
+    "submit": "Consultar garantía"
+  },
+  "auth": { "signIn": "Iniciar sesión" }
+}

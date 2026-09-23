@@ -1,0 +1,20 @@
+{
+  "app": { "name": "Garantie", "skipToContent": "Aller au contenu" },
+  "topbar": { "help": "Aide", "language": "Langue" },
+  "nav": {
+    "dashboard": "Tableau de bord",
+    "registrations": "Enregistrements",
+    "claims": "Réclamations",
+    "rma": "RMA",
+    "customers": "Clients",
+    "products": "Produits",
+    "reports": "Rapports",
+    "admin": "Administration",
+    "checkWarranty": "Vérifier la garantie"
+  },
+  "check": {
+    "title": "Vérifier la garantie",
+    "submit": "Vérifier la garantie"
+  },
+  "auth": { "signIn": "Se connecter" }
+}

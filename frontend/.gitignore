@@ -1,0 +1,20 @@
+node_modules
+dist
+dist-ssr
+coverage
+*.local
+.env
+.env.local
+.env.*.local
+playwright-report
+test-results
+blob-report
+playwright/.cache
+.vite
+*.tsbuildinfo
+.DS_Store
+# Licensed Myriad Pro files must not be committed unless the licence allows it (Section 2.3)
+src/assets/fonts/*.otf
+src/assets/fonts/*.ttf
+src/assets/fonts/*.woff
+src/assets/fonts/*.woff2
