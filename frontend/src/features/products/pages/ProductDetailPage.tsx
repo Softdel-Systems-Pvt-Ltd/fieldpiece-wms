@@ -1,18 +1,21 @@
-import { Package } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { useParams } from "react-router-dom";
 import { ErrorState, Skeleton } from "@/components/feedback";
 import { PageHeader } from "@/components/layout";
-import { Card, MonoId } from "@/components/ui";
+import { Card, MonoId, ProductImage } from "@/components/ui";
 import { formatDate } from "@/lib/format";
+import { can } from "@/lib/permissions";
+import { useCurrentRole } from "@/lib/session";
+import { ProductPhotoEditor } from "../components/ProductPhotoEditor";
 import { useProduct } from "../hooks";
 
-// TODO: admin-only edit form (PATCH /products/{sku}); warranty terms detail from /policies for staff.
+// TODO: admin-only edit form for name/pattern/launch (PATCH /products/{sku}); policy detail for staff.
 
 export default function ProductDetailPage() {
   const { sku } = useParams<{ sku: string }>();
   const { t, i18n } = useTranslation();
   const query = useProduct(sku);
+  const canEdit = can(useCurrentRole(), "products:edit");
 
   if (query.isLoading) return <Skeleton className="h-64 w-full" />;
   if (query.error || !query.data)
@@ -26,12 +29,9 @@ export default function ProductDetailPage() {
         breadcrumbs={[{ label: t("products.title"), to: "/products" }, { label: p.sku }]}
       />
       <Card className="flex flex-col gap-6 sm:flex-row">
-        <div className="flex h-40 w-40 shrink-0 items-center justify-center rounded bg-ink-50">
-          {p.imageUrl ? (
-            <img src={p.imageUrl} alt="" className="h-full w-full object-contain" />
-          ) : (
-            <Package size={24} strokeWidth={1.75} className="text-ink-400" aria-hidden />
-          )}
+        <div className="flex w-full flex-col gap-3 sm:w-64">
+          <ProductImage src={p.imageUrl} alt={p.name} size="fill" />
+          {canEdit ? <ProductPhotoEditor product={p} /> : null}
         </div>
         <dl className="grid flex-1 gap-4 sm:grid-cols-2">
           <div>

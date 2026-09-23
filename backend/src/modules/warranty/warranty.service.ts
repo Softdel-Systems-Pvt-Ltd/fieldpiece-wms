@@ -1,5 +1,6 @@
 import { Inject, Injectable } from "@nestjs/common";
 import { AppError } from "../../common/errors/app-error";
+import { productImageUrl } from "../../common/files/product-image";
 import { ErrorCode } from "../../common/errors/error-codes";
 import { Clock } from "../../common/time/clock";
 import { formatIsoDate } from "../../common/time/utc-date";
@@ -49,7 +50,7 @@ export class WarrantyService {
     if (registration) {
       return {
         serialNumber: registration.serialNumber,
-        product: registration.product,
+        product: this.publicProduct(registration.product),
         registered: true,
         warrantyStatus: computeWarrantyStatus({
           status: registration.status,
@@ -64,13 +65,27 @@ export class WarrantyService {
       serialMatchesProduct(serial, p),
     );
     if (!product) return null;
-    const { serialPattern: _pattern, ...publicProduct } = product;
     return {
       serialNumber: serial,
-      product: publicProduct,
+      product: this.publicProduct(product),
       registered: false,
       warrantyStatus: "NOT_REGISTERED",
       warrantyEnd: null,
+    };
+  }
+
+  /** Only the fields the public response may carry (Section 11.4), with the photo as a URL. */
+  private publicProduct(p: {
+    sku: string;
+    name: string;
+    family: WarrantyCheckResponse["product"]["family"];
+    imageKey: string | null;
+  }) {
+    return {
+      sku: p.sku,
+      name: p.name,
+      family: p.family,
+      imageUrl: productImageUrl(this.env, p.sku, p.imageKey),
     };
   }
 }

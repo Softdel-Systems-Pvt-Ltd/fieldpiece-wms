@@ -22,7 +22,10 @@
     "notifications": "Notifications",
     "account": "Account",
     "signOut": "Sign out",
-    "theme": { "light": "Light theme", "dark": "Dark theme" }
+    "theme": {
+      "light": "Light theme",
+      "dark": "Dark theme"
+    }
   },
   "nav": {
     "main": "Main navigation",
@@ -61,11 +64,17 @@
     "exportCsv": "Export CSV",
     "viewAll": "View all",
     "comingSoon": "This screen is scaffolded. Build it out following Section 8 of the build guide.",
-    "pageOf": "Page {{page}} of {{pages}}",
-    "previousPage": "Previous page",
-    "nextPage": "Next page",
-    "results": "{{count}} results",
     "dismiss": "Dismiss"
+  },
+  "pagination": {
+    "label": "Pagination",
+    "range": "{{from}}–{{to}} of {{total}}",
+    "none": "No results",
+    "perPage": "Per page",
+    "page": "Page {{page}}",
+    "pageOf": "Page {{page}} of {{pages}}",
+    "previous": "Previous page",
+    "next": "Next page"
   },
   "errors": {
     "generic": "Something went wrong. Try again.",
@@ -250,7 +259,11 @@
     "slaOverdue": "SLA overdue",
     "assignee": "Assignee",
     "unassignedLabel": "Unassigned",
-    "tabs": { "overview": "Overview", "timeline": "Timeline", "rma": "RMA" },
+    "tabs": {
+      "overview": "Overview",
+      "timeline": "Timeline",
+      "rma": "RMA"
+    },
     "product": "Product",
     "failureDate": "Failure date",
     "description": "Description",
@@ -421,6 +434,14 @@
   },
   "products": {
     "title": "Products",
+    "search": "Search by SKU or name",
+    "empty": "No products match these filters.",
+    "sort": {
+      "label": "Sort by",
+      "name": "Name A–Z",
+      "sku": "SKU",
+      "newest": "Newest first"
+    },
     "family": "Family",
     "warranty": "Warranty",
     "launched": "Launched",
@@ -437,6 +458,17 @@
       "airflow": "Airflow",
       "recovery": "Recovery",
       "other": "Other"
+    },
+    "photo": {
+      "add": "Add photo",
+      "change": "Change photo",
+      "remove": "Remove photo",
+      "uploading": "Uploading {{percent}}%",
+      "saved": "Photo updated",
+      "removed": "Photo removed",
+      "wrongType": "Use a PNG, JPEG or WebP image.",
+      "tooLarge": "That image is over 5 MB. Use a smaller one.",
+      "hint": "PNG, JPEG or WebP, up to 5 MB. A square photo on a plain background works best."
     }
   },
   "reports": {

@@ -7,17 +7,17 @@ import {
   type SortingState,
 } from "@tanstack/react-table";
 import type { LucideIcon } from "lucide-react";
-import { ArrowDown, ArrowUp, ChevronLeft, ChevronRight, Inbox } from "lucide-react";
+import { ArrowDown, ArrowUp, Inbox } from "lucide-react";
 import { useMemo, useState, type ReactNode } from "react";
-import { useTranslation } from "react-i18next";
 import { cn } from "@/lib/cn";
 import { EmptyState } from "../feedback/EmptyState";
 import { ErrorState } from "../feedback/ErrorState";
 import { Skeleton } from "../feedback/Skeleton";
-import { Button } from "./Button";
+import { Pagination } from "./Pagination";
 
 // Section 5.4. Sorting, filtering and pagination all happen on the server;
 // this component only renders and reports changes. Below md each row becomes a card.
+// Screens normally spread `useServerTable().bind(query)` into it rather than wiring each prop.
 
 // Heterogeneous column arrays need `any` for TValue: TanStack's documented pattern
 // (each column has its own value type; `unknown` breaks assignability).
@@ -34,8 +34,13 @@ export interface DataTableProps<T> {
   sort?: string;
   onSortChange?: (sort: string | undefined) => void;
   onPageChange: (page: number) => void;
+  /** Shows the page-size picker. */
+  onPageSizeChange?: (pageSize: number) => void;
+  pageSizes?: readonly number[];
   getRowId: (row: T) => string;
   isLoading?: boolean;
+  /** A later page is loading; the current rows stay visible but dimmed. */
+  isFetching?: boolean;
   error?: unknown;
   onRetry?: () => void;
   emptyMessage: string;
@@ -62,8 +67,11 @@ export function DataTable<T>({
   sort,
   onSortChange,
   onPageChange,
+  onPageSizeChange,
+  pageSizes,
   getRowId,
   isLoading,
+  isFetching,
   error,
   onRetry,
   emptyMessage,
@@ -74,10 +82,10 @@ export function DataTable<T>({
   onSelectionChange,
   caption,
 }: DataTableProps<T>) {
-  const { t } = useTranslation();
   const [rowSelection, setRowSelection] = useState<RowSelectionState>({});
   const sorting = useMemo(() => toSortingState(sort), [sort]);
   const pageCount = Math.max(1, Math.ceil(total / pageSize));
+  const refreshing = !!isFetching && !isLoading;
 
   const selectionColumn: AnyColumnDef<T> = {
     id: "__select",
@@ -139,7 +147,10 @@ export function DataTable<T>({
       ) : !isLoading && rows.length === 0 ? (
         <EmptyState icon={emptyIcon} message={emptyMessage} action={emptyAction} />
       ) : (
-        <>
+        <div
+          aria-busy={refreshing || undefined}
+          className={cn("transition-opacity", refreshing && "opacity-60")}
+        >
           {/* Desktop / tablet table */}
           <div className="hidden overflow-x-auto md:block">
             <table className="w-full border-collapse text-start">
@@ -231,34 +242,18 @@ export function DataTable<T>({
                   </li>
                 ))}
           </ul>
-        </>
+        </div>
       )}
 
-      <nav
-        className="flex items-center justify-between gap-4 border-t border-border px-4 py-3 text-sm text-text-muted"
-        aria-label="Pagination"
-      >
-        <span>{t("common.results", { count: total })}</span>
-        <div className="flex items-center gap-2">
-          <span>{t("common.pageOf", { page, pages: pageCount })}</span>
-          <Button
-            variant="ghost"
-            size="icon"
-            aria-label={t("common.previousPage")}
-            disabled={page <= 1 || isLoading}
-            onClick={() => onPageChange(page - 1)}
-            icon={ChevronLeft}
-          />
-          <Button
-            variant="ghost"
-            size="icon"
-            aria-label={t("common.nextPage")}
-            disabled={page >= pageCount || isLoading}
-            onClick={() => onPageChange(page + 1)}
-            icon={ChevronRight}
-          />
-        </div>
-      </nav>
+      <Pagination
+        page={page}
+        pageSize={pageSize}
+        total={total}
+        onPageChange={onPageChange}
+        onPageSizeChange={onPageSizeChange}
+        pageSizes={pageSizes}
+        isLoading={isLoading}
+      />
     </div>
   );
 }

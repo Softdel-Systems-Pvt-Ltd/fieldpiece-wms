@@ -1,5 +1,6 @@
 import { createZodDto } from "nestjs-zod";
 import { z } from "zod";
+import { PRODUCT_IMAGE_MAX_BYTES, PRODUCT_IMAGE_MIME } from "../../common/files/product-image";
 import { pageQuerySchema, paginatedSchema } from "../../common/pagination/pagination";
 import { isoDateString } from "../../common/validation/schemas";
 
@@ -21,7 +22,11 @@ export const productSchema = z.object({
   family: z.enum(PRODUCT_FAMILIES),
   serialPattern: z.string().nullable().describe("Regex source for serial validation [CONFIRM]"),
   launchDate: z.string().nullable().describe("YYYY-MM-DD"),
-  imageUrl: z.string().nullable(),
+  imageUrl: z
+    .string()
+    .url()
+    .nullable()
+    .describe("Versioned, cacheable URL of the product photo; null when there is none"),
   isActive: z.boolean(),
   warrantyMonths: z.number().int().nullable().describe("Current base months from the policy in effect today"),
   registrationBonusMonths: z.number().int().nullable(),
@@ -60,7 +65,6 @@ export const createProductSchema = z.object({
   family: z.enum(PRODUCT_FAMILIES),
   serialPattern: serialPattern.nullable().optional(),
   launchDate: isoDateString.nullable().optional(),
-  imageUrl: z.string().url().nullable().optional(),
 });
 export class CreateProductDto extends createZodDto(createProductSchema) {}
 
@@ -70,3 +74,24 @@ export const updateProductSchema = createProductSchema
   .partial()
   .refine((v) => Object.keys(v).length > 0, "Send at least one field to change.");
 export class UpdateProductDto extends createZodDto(updateProductSchema) {}
+
+// Product photo upload: presigned PUT straight to storage, then attach (same flow as attachments, ADR-008).
+
+export const productImageUploadSchema = z.object({
+  contentType: z.enum(PRODUCT_IMAGE_MIME),
+  contentLength: z.number().int().positive().max(PRODUCT_IMAGE_MAX_BYTES, "Images can be up to 5 MB."),
+});
+export class ProductImageUploadDto extends createZodDto(productImageUploadSchema) {}
+
+export const productImageUploadResponseSchema = z.object({
+  key: z.string().describe("Send back to PUT /products/{sku}/image once the upload finishes"),
+  uploadUrl: z.string().url(),
+  method: z.literal("PUT"),
+  headers: z.record(z.string()),
+  expiresAt: z.string().datetime(),
+});
+export type ProductImageUploadResponse = z.infer<typeof productImageUploadResponseSchema>;
+export class ProductImageUploadResponseDto extends createZodDto(productImageUploadResponseSchema) {}
+
+export const attachProductImageSchema = z.object({ key: z.string().min(1).max(200) });
+export class AttachProductImageDto extends createZodDto(attachProductImageSchema) {}

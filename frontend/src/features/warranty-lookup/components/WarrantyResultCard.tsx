@@ -1,7 +1,7 @@
-import { ClipboardPlus, Package, ShieldCheck } from "lucide-react";
+import { ClipboardPlus, ShieldCheck } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router-dom";
-import { buttonVariants, Card, MonoId, WarrantyStatusBadge } from "@/components/ui";
+import { buttonVariants, Card, MonoId, ProductImage, WarrantyStatusBadge } from "@/components/ui";
 import { formatDate } from "@/lib/format";
 import { useSession } from "@/lib/session";
 import type { WarrantyCheckResult } from "../types";
@@ -15,13 +15,7 @@ export function WarrantyResultCard({ result }: { result: WarrantyCheckResult }) 
   return (
     <Card as="article" aria-live="polite">
       <div className="flex gap-4">
-        <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded bg-ink-50">
-          {product.imageUrl ? (
-            <img src={product.imageUrl} alt="" className="h-full w-full object-contain" />
-          ) : (
-            <Package size={24} strokeWidth={1.75} aria-hidden className="text-ink-400" />
-          )}
-        </div>
+        <ProductImage src={product.imageUrl} alt="" />
         <div className="min-w-0 flex-1">
           <h2 className="text-h3">{product.name}</h2>
           <p className="text-sm text-text-muted">

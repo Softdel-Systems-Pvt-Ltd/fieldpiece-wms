@@ -8,7 +8,7 @@ import { buttonVariants, ClaimStatusBadge, DataTable, Input, MonoId, NativeSelec
 import { formatDate } from "@/lib/format";
 import { can } from "@/lib/permissions";
 import { useCurrentRole } from "@/lib/session";
-import { useTableParams } from "@/lib/use-table-params";
+import { useServerTable } from "@/lib/use-server-table";
 import type { ClaimStatus, ClaimSummary } from "@/types";
 import { SlaCountdown } from "../components/SlaCountdown";
 import { useClaims, useFailureCategories } from "../hooks";
@@ -35,21 +35,18 @@ export default function ClaimsListPage() {
   const { t, i18n } = useTranslation();
   const role = useCurrentRole();
   const isReviewer = can(role, "claims:review");
-  const [params, update] = useTableParams({ sort: "-updatedAt" });
-  const [search, setSearch] = useState(params.q ?? params.filters.displayNo ?? "");
+  const list = useServerTable({ sort: "-updatedAt" });
+  const [search, setSearch] = useState(list.q ?? list.filters.displayNo ?? "");
   const categories = useFailureCategories();
   const categoryLabel = useMemo(
     () => new Map((categories.data ?? []).map((c) => [c.code, c.label])),
     [categories.data],
   );
   const query = useClaims({
-    page: params.page,
-    pageSize: params.pageSize,
-    sort: params.sort,
-    q: params.q,
-    status: params.filters.status,
-    assignedTo: params.filters.assignedTo,
-    displayNo: params.filters.displayNo,
+    ...list.request,
+    status: list.filters.status,
+    assignedTo: list.filters.assignedTo,
+    displayNo: list.filters.displayNo,
   });
 
   const columns = useMemo(
@@ -113,17 +110,8 @@ export default function ClaimsListPage() {
       <DataTable
         caption={t("claims.title")}
         columns={columns}
-        data={query.data?.items}
-        total={query.data?.total ?? 0}
-        page={params.page}
-        pageSize={params.pageSize}
-        sort={params.sort}
-        onSortChange={(sort) => update({ sort })}
-        onPageChange={(page) => update({ page })}
+        {...list.bind(query)}
         getRowId={(row) => row.id}
-        isLoading={query.isLoading}
-        error={query.error}
-        onRetry={() => void query.refetch()}
         emptyMessage={t("claims.empty")}
         toolbar={
           <>
@@ -132,7 +120,7 @@ export default function ClaimsListPage() {
               className="relative w-full sm:w-72"
               onSubmit={(e) => {
                 e.preventDefault();
-                update({ q: search.trim(), displayNo: undefined });
+                list.update({ q: search.trim(), displayNo: undefined });
               }}
             >
               <label htmlFor="claims-search" className="sr-only">
@@ -159,8 +147,8 @@ export default function ClaimsListPage() {
             <NativeSelect
               id="claims-status"
               className="w-full sm:w-48"
-              value={params.filters.status ?? ""}
-              onChange={(e) => update({ status: e.target.value })}
+              value={list.filters.status ?? ""}
+              onChange={(e) => list.update({ status: e.target.value })}
             >
               <option value="">{t("claims.allStatuses")}</option>
               {STATUSES.map((s) => (
@@ -177,8 +165,8 @@ export default function ClaimsListPage() {
                 <NativeSelect
                   id="claims-assignee"
                   className="w-full sm:w-44"
-                  value={params.filters.assignedTo ?? ""}
-                  onChange={(e) => update({ assignedTo: e.target.value })}
+                  value={list.filters.assignedTo ?? ""}
+                  onChange={(e) => list.update({ assignedTo: e.target.value })}
                 >
                   <option value="">{t("claims.anyAssignee")}</option>
                   <option value="me">{t("claims.assignedToMe")}</option>

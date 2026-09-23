@@ -28,6 +28,7 @@
     "db:deploy": "prisma migrate deploy",
     "db:reset": "prisma migrate reset --force",
     "db:seed": "tsx prisma/seed.ts",
+    "db:seed:images": "tsx prisma/seed-product-images.ts",
     "openapi:export": "nest build && node dist/cli/export-openapi.js",
     "routes:public": "nest build && node dist/cli/list-public-routes.js"
   },

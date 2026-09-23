@@ -16,23 +16,13 @@ import { Card, FormField, Input, NativeSelect } from "@/components/ui";
 import { formatDate, formatMoney, formatNumber } from "@/lib/format";
 import { useCurrentUser } from "@/lib/session";
 import { useTableParams } from "@/lib/use-table-params";
-import type { ProductFamily } from "@/types";
+import { PRODUCT_FAMILIES, type ProductFamily } from "@/types";
 import { ChartCard } from "../components/ChartCard";
 import { useClaimRate, useClaimsOverTime, useCost, useFailureBreakdown, useResolutionTime } from "../hooks";
 import type { ReportFilters } from "../types";
 
 // Section 8.7. Chart colours per 8.2: series 1 brand-500, 2 ink-900, 3 info, 4 ink-300; axes ink-200.
 
-const FAMILIES: ProductFamily[] = [
-  "meters",
-  "gauges",
-  "vacuum",
-  "leak_detection",
-  "combustion",
-  "airflow",
-  "recovery",
-  "other",
-];
 const axis = { tick: { fontSize: 12, fill: "var(--ink-500)" }, stroke: "var(--ink-200)" };
 
 export default function ReportsPage() {
@@ -96,7 +86,7 @@ export default function ReportsPage() {
           <FormField label={t("products.family")}>
             <NativeSelect value={filters.family ?? ""} onChange={(e) => update({ family: e.target.value })}>
               <option value="">{t("reports.allFamilies")}</option>
-              {FAMILIES.map((f) => (
+              {PRODUCT_FAMILIES.map((f) => (
                 <option key={f} value={f}>
                   {t(`products.families.${f}`)}
                 </option>

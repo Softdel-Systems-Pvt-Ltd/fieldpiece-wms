@@ -6,7 +6,7 @@ import { Link } from "react-router-dom";
 import { PageHeader } from "@/components/layout";
 import { DataTable, MonoId, NativeSelect, RmaStatusBadge } from "@/components/ui";
 import { formatDate } from "@/lib/format";
-import { useTableParams } from "@/lib/use-table-params";
+import { useServerTable } from "@/lib/use-server-table";
 import type { Rma } from "@/types";
 import { useRmas } from "../hooks";
 
@@ -22,13 +22,10 @@ const VIEWS = {
 
 export default function RmaListPage() {
   const { t, i18n } = useTranslation();
-  const [params, update] = useTableParams({ sort: "-updatedAt" });
+  const list = useServerTable({ sort: "-updatedAt" });
   const query = useRmas({
-    page: params.page,
-    pageSize: params.pageSize,
-    sort: params.sort,
-    q: params.q,
-    status: params.filters.status,
+    ...list.request,
+    status: list.filters.status,
   });
 
   const columns = useMemo(
@@ -81,17 +78,8 @@ export default function RmaListPage() {
       <DataTable
         caption={t("rma.title")}
         columns={columns}
-        data={query.data?.items}
-        total={query.data?.total ?? 0}
-        page={params.page}
-        pageSize={params.pageSize}
-        sort={params.sort}
-        onSortChange={(sort) => update({ sort })}
-        onPageChange={(page) => update({ page })}
+        {...list.bind(query)}
         getRowId={(r) => r.id}
-        isLoading={query.isLoading}
-        error={query.error}
-        onRetry={() => void query.refetch()}
         emptyIcon={Truck}
         emptyMessage={t("rma.empty")}
         toolbar={
@@ -102,8 +90,8 @@ export default function RmaListPage() {
             <NativeSelect
               id="rma-view"
               className="w-full sm:w-56"
-              value={params.filters.status ?? ""}
-              onChange={(e) => update({ status: e.target.value })}
+              value={list.filters.status ?? ""}
+              onChange={(e) => list.update({ status: e.target.value })}
             >
               {Object.entries(VIEWS).map(([value, key]) => (
                 <option key={value} value={value}>

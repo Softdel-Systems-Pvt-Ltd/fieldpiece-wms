@@ -4,8 +4,17 @@
 
 export type Role = "technician" | "distributor" | "claims_agent" | "service_center" | "admin";
 
-export type ProductFamily =
-  "meters" | "gauges" | "vacuum" | "leak_detection" | "combustion" | "airflow" | "recovery" | "other";
+export const PRODUCT_FAMILIES = [
+  "meters",
+  "gauges",
+  "vacuum",
+  "leak_detection",
+  "combustion",
+  "airflow",
+  "recovery",
+  "other",
+] as const;
+export type ProductFamily = (typeof PRODUCT_FAMILIES)[number];
 
 export interface Product {
   id: string;

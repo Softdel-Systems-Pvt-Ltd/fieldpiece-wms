@@ -5,7 +5,7 @@ import { useTranslation } from "react-i18next";
 import { Link } from "react-router-dom";
 import { PageHeader } from "@/components/layout";
 import { DataTable, Input } from "@/components/ui";
-import { useTableParams } from "@/lib/use-table-params";
+import { useServerTable } from "@/lib/use-server-table";
 import type { Customer } from "@/types";
 import { useCustomers } from "../hooks";
 
@@ -13,13 +13,10 @@ const col = createColumnHelper<Customer>();
 
 export default function CustomersListPage() {
   const { t } = useTranslation();
-  const [params, update] = useTableParams({ sort: "contactName" });
-  const [search, setSearch] = useState(params.q ?? "");
+  const list = useServerTable({ sort: "contactName" });
+  const [search, setSearch] = useState(list.q ?? "");
   const query = useCustomers({
-    page: params.page,
-    pageSize: params.pageSize,
-    sort: params.sort,
-    q: params.q,
+    ...list.request,
   });
 
   const columns = useMemo(
@@ -56,17 +53,8 @@ export default function CustomersListPage() {
       <DataTable
         caption={t("customers.title")}
         columns={columns}
-        data={query.data?.items}
-        total={query.data?.total ?? 0}
-        page={params.page}
-        pageSize={params.pageSize}
-        sort={params.sort}
-        onSortChange={(sort) => update({ sort })}
-        onPageChange={(page) => update({ page })}
+        {...list.bind(query)}
         getRowId={(r) => r.id}
-        isLoading={query.isLoading}
-        error={query.error}
-        onRetry={() => void query.refetch()}
         emptyIcon={Users}
         emptyMessage={t("customers.empty")}
         toolbar={
@@ -75,7 +63,7 @@ export default function CustomersListPage() {
             className="relative w-full sm:w-72"
             onSubmit={(e) => {
               e.preventDefault();
-              update({ q: search.trim() });
+              list.update({ q: search.trim() });
             }}
           >
             <label htmlFor="customers-search" className="sr-only">

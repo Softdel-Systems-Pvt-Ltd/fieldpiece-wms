@@ -1,11 +1,14 @@
-import { Injectable } from "@nestjs/common";
+import { Inject, Injectable } from "@nestjs/common";
 import { Prisma, type Product } from "@prisma/client";
 import { createHash } from "node:crypto";
 import type { RequestContext } from "../../common/auth/auth-user";
 import { AppError } from "../../common/errors/app-error";
 import { ErrorCode } from "../../common/errors/error-codes";
+import { productImageUrl } from "../../common/files/product-image";
 import { orderByFrom, pageArgs, type Paginated } from "../../common/pagination/pagination";
 import { formatIsoDate, parseIsoDate } from "../../common/time/utc-date";
+import { ENV } from "../../config/config.module";
+import type { Env } from "../../config/env";
 import { CacheService } from "../../infra/redis/cache.service";
 import { type Db, PrismaService } from "../../infra/prisma/prisma.service";
 import { AuditService } from "../audit";
@@ -24,6 +27,7 @@ export class ProductsService {
     private readonly policies: PoliciesService,
     private readonly audit: AuditService,
     private readonly cache: CacheService,
+    @Inject(ENV) private readonly env: Env,
   ) {}
 
   async list(query: ProductListQueryDto): Promise<Paginated<ProductResponse>> {
@@ -85,7 +89,7 @@ export class ProductsService {
         });
         return created;
       });
-      await this.cache.delByPrefix(CACHE_PREFIX);
+      await this.invalidate();
       return (await this.withTerms([row]))[0]!;
     } catch (err) {
       if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2002") {
@@ -116,8 +120,13 @@ export class ProductsService {
       });
       return updated;
     });
-    await this.cache.delByPrefix(CACHE_PREFIX);
+    await this.invalidate();
     return (await this.withTerms([row]))[0]!;
+  }
+
+  /** Drops cached lists and details after any product change. */
+  invalidate(): Promise<void> {
+    return this.cache.delByPrefix(CACHE_PREFIX);
   }
 
   private async withTerms(products: Product[]): Promise<ProductResponse[]> {
@@ -129,7 +138,7 @@ export class ProductsService {
       family: p.family,
       serialPattern: p.serialPattern,
       launchDate: p.launchDate ? formatIsoDate(p.launchDate) : null,
-      imageUrl: p.imageUrl,
+      imageUrl: productImageUrl(this.env, p.sku, p.imageKey),
       isActive: p.isActive,
       warrantyMonths: terms.get(p.id)?.baseMonths ?? null,
       registrationBonusMonths: terms.get(p.id)?.registrationBonusMonths ?? null,

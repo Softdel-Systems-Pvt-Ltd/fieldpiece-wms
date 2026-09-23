@@ -52,6 +52,8 @@ export const EnvSchema = z
     SMTP_URL: z.string().optional(),
     MAIL_FROM: z.string().default("Fieldpiece Warranty <no-reply@fieldpiece.local>"),
     WEB_APP_URL: z.string().url().default("http://localhost:5173"),
+    /** Browser-reachable origin of this API, for URLs the API hands out (product images). */
+    API_PUBLIC_URL: z.string().url().default("http://localhost:3000"),
 
     SWAGGER_ENABLED: bool,
     LOG_LEVEL: z.enum(["fatal", "error", "warn", "info", "debug", "trace"]).default("info"),

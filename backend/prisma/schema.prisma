@@ -65,7 +65,8 @@ model Product {
   family        ProductFamily
   serialPattern String?       @map("serial_pattern") /// regex source [CONFIRM] per SKU
   launchDate    DateTime?     @map("launch_date") @db.Date
-  imageUrl      String?       @map("image_url")
+  /// Storage key of the product photo (products/<SKU>/<uuid>). Served by GET /products/{sku}/image.
+  imageKey      String?       @map("image_key")
   isActive      Boolean       @default(true) @map("is_active")
   createdAt     DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt     DateTime      @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)

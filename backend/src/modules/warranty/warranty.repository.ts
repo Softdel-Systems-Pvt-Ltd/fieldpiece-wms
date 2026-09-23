@@ -19,7 +19,7 @@ export class WarrantyRepository {
         serialNumber: true,
         status: true,
         warrantyEnd: true,
-        product: { select: { sku: true, name: true, family: true, imageUrl: true } },
+        product: { select: { sku: true, name: true, family: true, imageKey: true } },
       },
     });
   }
@@ -27,7 +27,7 @@ export class WarrantyRepository {
   activeProducts(db: Db, sku?: string) {
     return db.product.findMany({
       where: { deletedAt: null, isActive: true, sku },
-      select: { sku: true, name: true, family: true, imageUrl: true, serialPattern: true },
+      select: { sku: true, name: true, family: true, imageKey: true, serialPattern: true },
     });
   }
 }

@@ -14,6 +14,12 @@ const api = (path: string) => `*${pathOf(env.apiBaseUrl)}${path}`;
 const idp = (path: string) => `*${pathOf(env.oidcAuthority)}${path}`;
 
 const LATENCY = import.meta.env.MODE === "test" ? 0 : 150;
+/** Stand-in for an uploaded product photo (mock mode never stores real bytes). */
+const MOCK_PHOTO =
+  "data:image/svg+xml;utf8," +
+  encodeURIComponent(
+    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect x="30" y="15" width="40" height="70" rx="6" fill="gold" stroke="black" stroke-width="3"/><rect x="37" y="24" width="26" height="18" fill="black"/></svg>',
+  );
 const SESSION_KEY = "fp-wms-mock-session";
 
 const fail = (status: number, code: string, message: string, extra: Partial<ApiErrorBody> = {}) =>
@@ -187,7 +193,45 @@ export const handlers = [
     });
   }),
 
-  http.get(api("/products"), ({ request }) => HttpResponse.json(page(db.products, new URL(request.url)))),
+  http.get(api("/products"), ({ request }) => {
+    const url = new URL(request.url);
+    const q = url.searchParams.get("q")?.toLowerCase();
+    const family = url.searchParams.get("family");
+    const items = db.products.filter(
+      (p) =>
+        (!q || p.sku.toLowerCase().includes(q) || p.name.toLowerCase().includes(q)) &&
+        (!family || p.family === family),
+    );
+    return HttpResponse.json(page(sortBy(items, url.searchParams.get("sort") ?? "sku"), url));
+  }),
+  // Product photos: presigned PUT to the fake storage host, then attach. Mock mode has no real bytes, so the
+  // attached photo is a placeholder image.
+  http.post(api("/products/:sku/image/upload-url"), ({ params }) => {
+    const key = `products/${String(params.sku)}/${crypto.randomUUID()}`;
+    return HttpResponse.json(
+      {
+        key,
+        uploadUrl: `https://mock-storage.local/${key}`,
+        method: "PUT",
+        headers: { "Content-Type": "image/png" },
+        expiresAt: new Date(Date.now() + 300_000).toISOString(),
+      },
+      { status: 201 },
+    );
+  }),
+  http.put("https://mock-storage.local/products/:sku/:id", () => new HttpResponse(null, { status: 200 })),
+  http.put(api("/products/:sku/image"), ({ params }) => {
+    const product = db.products.find((x) => x.sku === params.sku);
+    if (!product) return fail(404, "NOT_FOUND", "Product not found.");
+    product.imageUrl = MOCK_PHOTO;
+    return HttpResponse.json(product);
+  }),
+  http.delete(api("/products/:sku/image"), ({ params }) => {
+    const product = db.products.find((x) => x.sku === params.sku);
+    if (!product) return fail(404, "NOT_FOUND", "Product not found.");
+    product.imageUrl = null;
+    return HttpResponse.json(product);
+  }),
   http.get(api("/products/:sku"), ({ params }) => {
     const p = db.products.find((x) => x.sku === params.sku);
     return p ? HttpResponse.json(p) : fail(404, "NOT_FOUND", "Product not found.");

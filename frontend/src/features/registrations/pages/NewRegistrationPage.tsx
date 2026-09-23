@@ -15,6 +15,7 @@ import {
   Input,
   MonoId,
   NativeSelect,
+  ProductImage,
   SerialHelpLink,
   SerialNumberInput,
   Stepper,
@@ -282,6 +283,15 @@ export default function NewRegistrationPage() {
                   ))}
                 </NativeSelect>
               </FormField>
+              {product ? (
+                <div className="flex items-center gap-3 rounded border border-border p-3">
+                  <ProductImage src={product.imageUrl} alt="" size="sm" />
+                  <div className="min-w-0">
+                    <p className="font-semibold">{product.name}</p>
+                    <p className="font-mono text-sm text-text-muted">{product.sku}</p>
+                  </div>
+                </div>
+              ) : null}
             </>
           ) : null}
 

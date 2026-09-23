@@ -1,5 +1,6 @@
 import { useCallback, useMemo } from "react";
 import { useSearchParams } from "react-router-dom";
+import { MAX_PAGE_SIZE, parsePageSize } from "./pagination";
 
 // Section 5.4: page, sort and filters live in the URL so views can be shared.
 
@@ -13,7 +14,14 @@ export interface TableParams {
 
 const RESERVED = new Set(["page", "pageSize", "sort", "q"]);
 
-export function useTableParams(defaults: { pageSize?: number; sort?: string } = {}) {
+export interface TableParamDefaults {
+  pageSize?: number;
+  sort?: string;
+  /** Page sizes the screen offers. Without it any size up to the API's cap is accepted. */
+  pageSizes?: readonly number[];
+}
+
+export function useTableParams(defaults: TableParamDefaults = {}) {
   const [searchParams, setSearchParams] = useSearchParams();
 
   const params = useMemo<TableParams>(() => {
@@ -23,12 +31,14 @@ export function useTableParams(defaults: { pageSize?: number; sort?: string } = 
     });
     return {
       page: Math.max(1, Number(searchParams.get("page")) || 1),
-      pageSize: Number(searchParams.get("pageSize")) || defaults.pageSize || 25,
+      pageSize: defaults.pageSizes
+        ? parsePageSize(searchParams.get("pageSize"), defaults.pageSizes, defaults.pageSize ?? 25)
+        : Math.min(Number(searchParams.get("pageSize")) || defaults.pageSize || 25, MAX_PAGE_SIZE),
       sort: searchParams.get("sort") ?? defaults.sort,
       q: searchParams.get("q") ?? undefined,
       filters,
     };
-  }, [searchParams, defaults.pageSize, defaults.sort]);
+  }, [searchParams, defaults.pageSize, defaults.sort, defaults.pageSizes]);
 
   /** Merge updates into the URL. Changing anything except `page` resets to page 1. */
   const update = useCallback(

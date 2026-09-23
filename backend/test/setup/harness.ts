@@ -15,7 +15,7 @@ export interface Harness {
   db: PrismaClient;
   tokenFor(email: string): Promise<string>;
   request(opts: {
-    method: "GET" | "POST" | "PATCH";
+    method: "GET" | "POST" | "PATCH" | "PUT" | "DELETE";
     url: string;
     token?: string;
     body?: unknown;
@@ -24,6 +24,8 @@ export interface Harness {
     status: number;
     body: Record<string, unknown> & { code?: string };
     headers: OutgoingHttpHeaders;
+    /** Undecoded body, for binary responses. */
+    raw: Buffer;
   }>;
   close(): Promise<void>;
 }
@@ -71,8 +73,12 @@ export async function createHarness(
     });
     return {
       status: res.statusCode,
-      body: res.body ? (JSON.parse(res.body) as Record<string, unknown>) : {},
+      body:
+        res.body && String(res.headers["content-type"] ?? "").includes("json")
+          ? (JSON.parse(res.body) as Record<string, unknown>)
+          : {},
       headers: res.headers,
+      raw: res.rawPayload,
     };
   };
 

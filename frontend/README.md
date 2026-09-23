@@ -81,6 +81,10 @@ src/
 - **Tokens stay in memory.** Never put an access token in `localStorage`. The refresh token is an httpOnly cookie.
 - **Edits send `If-Match`, creates send `Idempotency-Key`** (`lib/concurrency.ts`). A 409 `STALE_VERSION` shows a
   "someone else changed this" message and refetches.
+- **Every list is paginated on the server, with its state in the URL.** Use `useServerTable` (`lib/use-server-table.ts`):
+  send `list.request` to the API and spread `list.bind(query)` into `DataTable`, or into `Pagination` for card
+  grids. Never slice or sort rows in the browser.
+- **Product photos go through `ProductImage`**, which handles lazy loading and the placeholder.
 - **Files go straight to storage** with a presigned URL (`lib/uploads.ts`), then the app polls until the scan is clean.
 - **UI hiding isn't security.** `lib/permissions.ts` and `RequireRole` only decide what to show; the API enforces access.
 

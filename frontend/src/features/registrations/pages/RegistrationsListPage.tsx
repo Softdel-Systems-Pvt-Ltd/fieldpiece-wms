@@ -8,7 +8,7 @@ import { buttonVariants, DataTable, Input, MonoId, NativeSelect, WarrantyStatusB
 import { formatDate } from "@/lib/format";
 import { can } from "@/lib/permissions";
 import { useCurrentRole } from "@/lib/session";
-import { useTableParams } from "@/lib/use-table-params";
+import { useServerTable } from "@/lib/use-server-table";
 import type { Registration, RegistrationStatus } from "@/types";
 import { useRegistrations } from "../hooks";
 
@@ -18,15 +18,12 @@ const col = createColumnHelper<Registration>();
 export default function RegistrationsListPage() {
   const { t, i18n } = useTranslation();
   const role = useCurrentRole();
-  const [params, update] = useTableParams({ sort: "-createdAt" });
-  const [search, setSearch] = useState(params.q ?? params.filters.serial ?? "");
-  const status = params.filters.status as RegistrationStatus | undefined;
+  const list = useServerTable({ sort: "-createdAt" });
+  const [search, setSearch] = useState(list.q ?? list.filters.serial ?? "");
+  const status = list.filters.status as RegistrationStatus | undefined;
   const query = useRegistrations({
-    page: params.page,
-    pageSize: params.pageSize,
-    sort: params.sort,
-    q: params.q,
-    serial: params.filters.serial,
+    ...list.request,
+    serial: list.filters.serial,
     status,
   });
 
@@ -82,17 +79,8 @@ export default function RegistrationsListPage() {
       <DataTable
         caption={t("registrations.title")}
         columns={columns}
-        data={query.data?.items}
-        total={query.data?.total ?? 0}
-        page={params.page}
-        pageSize={params.pageSize}
-        sort={params.sort}
-        onSortChange={(sort) => update({ sort })}
-        onPageChange={(page) => update({ page })}
+        {...list.bind(query)}
         getRowId={(row) => row.id}
-        isLoading={query.isLoading}
-        error={query.error}
-        onRetry={() => void query.refetch()}
         emptyIcon={ShieldCheck}
         emptyMessage={t("registrations.empty")}
         toolbar={
@@ -102,7 +90,7 @@ export default function RegistrationsListPage() {
               className="relative w-full sm:w-72"
               onSubmit={(e) => {
                 e.preventDefault();
-                update({ q: search.trim(), serial: undefined });
+                list.update({ q: search.trim(), serial: undefined });
               }}
             >
               <label htmlFor="registrations-search" className="sr-only">
@@ -130,7 +118,7 @@ export default function RegistrationsListPage() {
               id="registrations-status"
               className="w-full sm:w-48"
               value={status ?? ""}
-              onChange={(e) => update({ status: e.target.value })}
+              onChange={(e) => list.update({ status: e.target.value })}
             >
               <option value="">{t("claims.allStatuses")}</option>
               {STATUSES.map((s) => (

@@ -15,6 +15,7 @@ cp .env.example .env
 docker compose up -d                 # postgres :5433, redis :6379, minio :9000/:9001, mailpit :8025, pgadmin :5050
 pnpm install
 pnpm db:deploy && pnpm db:seed       # migrate as wms_owner, then load demo data (safe to re-run)
+pnpm db:seed:images                  # optional, needs internet: official product photos into MinIO
 pnpm start:dev                       # API   -> http://localhost:3000/api/v1   (Swagger at /docs)
 pnpm worker:dev                      # worker: outbox relay, email, PDFs, file scan, imports, SLA + purge jobs
 ```
@@ -60,6 +61,7 @@ Roles come from the `users` table, not the token (cached for 60 s). The dev IdP 
 | `pnpm test:e2e`                 | HTTP tests through `app.inject` against the `wms_test` DB and Redis DB 1 |
 | `pnpm db:migrate` / `db:deploy` | Create a migration (dev) / apply migrations                              |
 | `pnpm db:seed`                  | Idempotent demo data                                                     |
+| `pnpm db:seed:images`           | Loads official product photos into storage (`--force` replaces them)     |
 | `pnpm openapi:export`           | Writes `openapi.json` (the frontend types mirror it)                     |
 | `pnpm routes:public`            | Lists every route that skips auth. Review it in each PR.                 |
 
@@ -89,7 +91,7 @@ test/                     e2e harness, factories, suites
 
 - **Modules import each other only through `index.ts`** (eslint-plugin-boundaries). Cross-module calls that would
   create a cycle go through a port (for example, claims issues RMAs via `RmaIssuer`).
-- **Everything is deny-by-default.** A route needs `@Roles(...)` or an explicit `@Public()`. There are 9 public routes.
+- **Everything is deny-by-default.** A route needs `@Roles(...)` or an explicit `@Public()`. There are 10 public routes.
 - **Out-of-scope rows return 404, not 403**, so IDs can't be probed. Use the helpers in `common/auth/scope.ts`.
 - **Mutations on existing records need `If-Match`.** A missing header gets 428; a stale one gets 409 `STALE_VERSION`.
   Creates accept `Idempotency-Key`.
@@ -98,6 +100,11 @@ test/                     e2e harness, factories, suites
 - **Status changes only through the state machines** (`claims/claim-state-machine.ts`, `rma/rma-state-machine.ts`).
   Responses carry `allowedActions`, and the UI renders buttons from them.
 - **No `$queryRawUnsafe` / `$executeRawUnsafe`** (lint-banned). Use tagged `$queryRaw`.
+- **Lists are paginated on the server** with `?page=&pageSize=&sort=&q=` (`common/pagination`). `pageSize` is
+  capped at 100 and `sort` must be on the endpoint's allow-list.
+- **Product photos live in object storage**, never as external URLs. `products.image_key` holds the key and
+  responses carry a versioned `imageUrl` (`API_PUBLIC_URL` + `/products/{sku}/image?v=...`). A new upload means
+  a new URL, so the image route can send `Cache-Control: immutable`.
 - **Dates are UTC, date-only values are `DATE` columns.** Warranty end = start + months − 1 day.
 - **The app connects as `wms_app`**, which can't run DDL or delete audit rows. Migrations run as `wms_owner`.
 

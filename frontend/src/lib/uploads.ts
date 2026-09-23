@@ -29,6 +29,23 @@ function mimeOf(file: File): string {
   return ext === "heic" ? "image/heic" : ext === "csv" ? "text/csv" : "application/octet-stream";
 }
 
+/**
+ * PUTs a file to a presigned storage URL. A plain axios call: the storage host must never receive our bearer
+ * token. Shared by attachments and product photos.
+ */
+export async function putToStorage(
+  url: string,
+  file: File,
+  headers: Record<string, string>,
+  onProgress?: (percent: number) => void,
+): Promise<void> {
+  await axios.put(url, file, {
+    headers,
+    onUploadProgress: (e) => onProgress?.(e.total ? Math.round((e.loaded / e.total) * 100) : 0),
+  });
+  onProgress?.(100);
+}
+
 export async function uploadAttachment(
   file: File,
   ownerType: UploadOwner,
@@ -41,12 +58,7 @@ export async function uploadAttachment(
     ownerType,
   });
 
-  // A plain axios call: the storage URL must not receive our bearer token.
-  await axios.put(data.uploadUrl, file, {
-    headers: data.headers,
-    onUploadProgress: (e) => onProgress?.(e.total ? Math.round((e.loaded / e.total) * 100) : 0),
-  });
-  onProgress?.(100);
+  await putToStorage(data.uploadUrl, file, data.headers, onProgress);
 
   await http.post(`/attachments/${data.attachment.id}/confirm`);
   return waitForScan(data.attachment.id);
